@@ -2236,7 +2236,7 @@ XML_StopParser(XML_Parser parser, XML_Bool resumable) {
     return XML_STATUS_ERROR;
   switch (parser->m_parsingStatus.parsing) {
   case XML_INITIALIZED:
-    parser->m_errorCode = XML_ERROR_NOT_STARTED;
+    parser->m_errorCode = XML_ERROR_FINISHED;
     return XML_STATUS_ERROR;
   case XML_SUSPENDED:
     if (resumable) {
@@ -2526,9 +2526,6 @@ XML_ErrorString(enum XML_Error code) {
   case XML_ERROR_AMPLIFICATION_LIMIT_BREACH:
     return XML_L(
         "limit on input amplification factor (from DTD and entities) breached");
-  /* Added in 2.6.4. */
-  case XML_ERROR_NOT_STARTED:
-    return XML_L("parser not started");
   }
   return NULL;
 }

@@ -1,4 +1,4 @@
-/*	$OpenBSD: ripe.c,v 1.37 2024/11/21 13:38:15 claudio Exp $ */
+/*	$OpenBSD: ripe.c,v 1.31 2023/03/08 04:43:15 guenther Exp $ */
 
 /*
  * Copyright (c) 2006 Michele Marchetto <mydecay@openbeer.it>
@@ -153,11 +153,9 @@ ripe(struct ripd_conf *xconf, int pipe_parent2ripe[2], int pipe_ripe2rde[2],
 	if ((iev_rde = malloc(sizeof(struct imsgev))) == NULL ||
 	    (iev_main = malloc(sizeof(struct imsgev))) == NULL)
 		fatal(NULL);
-	if (imsgbuf_init(&iev_rde->ibuf, pipe_ripe2rde[0]) == -1)
-		fatal(NULL);
+	imsg_init(&iev_rde->ibuf, pipe_ripe2rde[0]);
 	iev_rde->handler = ripe_dispatch_rde;
-	if (imsgbuf_init(&iev_main->ibuf, pipe_parent2ripe[1]) == -1)
-		fatal(NULL);
+	imsg_init(&iev_main->ibuf, pipe_parent2ripe[1]);
 	iev_main->handler = ripe_dispatch_main;
 
 	/* setup event handler */
@@ -233,18 +231,16 @@ ripe_dispatch_main(int fd, short event, void *bula)
 	int		 link_ok, shut = 0;
 
 	if (event & EV_READ) {
-		if ((n = imsgbuf_read(ibuf)) == -1)
-			fatal("imsgbuf_read error");
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+			fatal("imsg_read error");
 		if (n == 0)	/* connection closed */
 			shut = 1;
 	}
 	if (event & EV_WRITE) {
-		if (imsgbuf_write(ibuf) == -1) {
-			if (errno == EPIPE)	/* connection closed */
-				shut = 1;
-			else
-				fatal("imsgbuf_write");
-		}
+		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
+			fatal("msgbuf_write");
+		if (n == 0)	/* connection closed */
+			shut = 1;
 	}
 
 	for (;;) {
@@ -314,18 +310,16 @@ ripe_dispatch_rde(int fd, short event, void *bula)
 	int			 shut = 0;
 
 	if (event & EV_READ) {
-		if ((n = imsgbuf_read(ibuf)) == -1)
-			fatal("imsgbuf_read error");
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+			fatal("imsg_read error");
 		if (n == 0)	/* connection closed */
 			shut = 1;
 	}
 	if (event & EV_WRITE) {
-		if (imsgbuf_write(ibuf) == -1) {
-			if (errno == EPIPE)	/* connection closed */
-				shut = 1;
-			else
-				fatal("imsgbuf_write");
-		}
+		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
+			fatal("msgbuf_write");
+		if (n == 0)	/* connection closed */
+			shut = 1;
 	}
 
 	for (;;) {
@@ -458,11 +452,11 @@ ripe_shutdown(void)
 	struct iface	*iface;
 
 	/* close pipes */
-	imsgbuf_write(&iev_rde->ibuf);
-	imsgbuf_clear(&iev_rde->ibuf);
+	msgbuf_write(&iev_rde->ibuf.w);
+	msgbuf_clear(&iev_rde->ibuf.w);
 	close(iev_rde->ibuf.fd);
-	imsgbuf_write(&iev_main->ibuf);
-	imsgbuf_clear(&iev_main->ibuf);
+	msgbuf_write(&iev_main->ibuf.w);
+	msgbuf_clear(&iev_main->ibuf.w);
 	close(iev_main->ibuf.fd);
 
 	LIST_FOREACH(iface, &oeconf->iface_list, entry) {

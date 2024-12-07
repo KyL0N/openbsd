@@ -1,4 +1,4 @@
-/*	$OpenBSD: ufs_vnops.c,v 1.164 2024/10/18 05:52:33 miod Exp $	*/
+/*	$OpenBSD: ufs_vnops.c,v 1.163 2024/09/12 09:04:51 claudio Exp $	*/
 /*	$NetBSD: ufs_vnops.c,v 1.18 1996/05/11 18:28:04 mycroft Exp $	*/
 
 /*
@@ -1521,7 +1521,7 @@ ufs_strategy(void *v)
 int
 ufs_print(void *v)
 {
-#if defined(DEBUG) || defined(DIAGNOSTIC) || defined(VFSLCKDEBUG)
+#ifdef DIAGNOSTIC
 	struct vop_print_args *ap = v;
 
 	struct vnode *vp = ap->a_vp;
@@ -1539,7 +1539,8 @@ ufs_print(void *v)
 		fifo_printinfo(vp);
 #endif /* FIFO */
 	printf("\n");
-#endif
+
+#endif /* DIAGNOSTIC */
 
 	return (0);
 }

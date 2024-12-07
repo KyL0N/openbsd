@@ -103,9 +103,7 @@ end_element_event_handler2(void *userData, const XML_Char *name) {
 void XMLCALL
 counting_start_element_handler(void *userData, const XML_Char *name,
                                const XML_Char **atts) {
-  ParserAndElementInfo *const parserAndElementInfos
-      = (ParserAndElementInfo *)userData;
-  ElementInfo *info = parserAndElementInfos->info;
+  ElementInfo *info = (ElementInfo *)userData;
   AttrInfo *attr;
   int count, id, i;
 
@@ -122,12 +120,12 @@ counting_start_element_handler(void *userData, const XML_Char *name,
    * is possibly a little unexpected, but it is what the
    * documentation in expat.h tells us to expect.
    */
-  count = XML_GetSpecifiedAttributeCount(parserAndElementInfos->parser);
+  count = XML_GetSpecifiedAttributeCount(g_parser);
   if (info->attr_count * 2 != count) {
     fail("Not got expected attribute count");
     return;
   }
-  id = XML_GetIdAttributeIndex(parserAndElementInfos->parser);
+  id = XML_GetIdAttributeIndex(g_parser);
   if (id == -1 && info->id_name != NULL) {
     fail("ID not present");
     return;
@@ -1883,6 +1881,12 @@ accumulate_entity_decl(void *userData, const XML_Char *entityName,
 }
 
 void XMLCALL
+accumulate_char_data(void *userData, const XML_Char *s, int len) {
+  CharData *const storage = (CharData *)userData;
+  CharData_AppendXMLChars(storage, s, len);
+}
+
+void XMLCALL
 accumulate_start_element(void *userData, const XML_Char *name,
                          const XML_Char **atts) {
   CharData *const storage = (CharData *)userData;
@@ -1904,34 +1908,6 @@ accumulate_start_element(void *userData, const XML_Char *name,
   }
 
   CharData_AppendXMLChars(storage, XCS(")\n"), 2);
-}
-
-void XMLCALL
-accumulate_characters(void *userData, const XML_Char *s, int len) {
-  CharData *const storage = (CharData *)userData;
-  CharData_AppendXMLChars(storage, s, len);
-}
-
-void XMLCALL
-accumulate_attribute(void *userData, const XML_Char *name,
-                     const XML_Char **atts) {
-  CharData *const storage = (CharData *)userData;
-  UNUSED_P(name);
-  /* Check there are attributes to deal with */
-  if (atts == NULL)
-    return;
-
-  while (storage->count < 0 && atts[0] != NULL) {
-    /* "accumulate" the value of the first attribute we see */
-    CharData_AppendXMLChars(storage, atts[1], -1);
-    atts += 2;
-  }
-}
-
-void XMLCALL
-ext_accumulate_characters(void *userData, const XML_Char *s, int len) {
-  ExtTest *const test_data = (ExtTest *)userData;
-  accumulate_characters(test_data->storage, s, len);
 }
 
 void XMLCALL

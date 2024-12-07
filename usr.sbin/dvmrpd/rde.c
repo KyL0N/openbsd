@@ -1,4 +1,4 @@
-/*	$OpenBSD: rde.c,v 1.39 2024/11/21 13:38:14 claudio Exp $ */
+/*	$OpenBSD: rde.c,v 1.33 2024/02/26 09:50:42 jsg Exp $ */
 
 /*
  * Copyright (c) 2004, 2005 Claudio Jeker <claudio@openbsd.org>
@@ -123,12 +123,10 @@ rde(struct dvmrpd_conf *xconf, int pipe_parent2rde[2], int pipe_dvmrpe2rde[2],
 	    (iev_main = malloc(sizeof(struct imsgev))) == NULL)
 		fatal(NULL);
 
-	if (imsgbuf_init(&iev_dvmrpe->ibuf, pipe_dvmrpe2rde[1]) == -1)
-		fatal(NULL);
+	imsg_init(&iev_dvmrpe->ibuf, pipe_dvmrpe2rde[1]);
 	iev_dvmrpe->handler = rde_dispatch_imsg;
 
-	if (imsgbuf_init(&iev_main->ibuf, pipe_parent2rde[1]) == -1)
-		fatal(NULL);
+	imsg_init(&iev_main->ibuf, pipe_parent2rde[1]);
 	iev_main->handler = rde_dispatch_imsg;
 
 	/* setup event handler */
@@ -158,9 +156,9 @@ rde_shutdown(void)
 	struct iface	*iface;
 
 	/* close pipes */
-	imsgbuf_clear(&iev_dvmrpe->ibuf);
+	msgbuf_clear(&iev_dvmrpe->ibuf.w);
 	close(iev_dvmrpe->ibuf.fd);
-	imsgbuf_clear(&iev_main->ibuf);
+	msgbuf_clear(&iev_main->ibuf.w);
 	close(iev_main->ibuf.fd);
 
 	rt_clear();
@@ -208,18 +206,16 @@ rde_dispatch_imsg(int fd, short event, void *bula)
 	struct iface		*iface;
 
 	if (event & EV_READ) {
-		if ((n = imsgbuf_read(ibuf)) == -1)
-			fatal("imsgbuf_read error");
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+			fatal("imsg_read error");
 		if (n == 0)	/* connection closed */
 			shut = 1;
 	}
 	if (event & EV_WRITE) {
-		if (imsgbuf_write(ibuf) == -1) {
-			if (errno == EPIPE)	/* connection closed */
-				shut = 1;
-			else
-				fatal("imsgbuf_write");
-		}
+		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
+			fatal("msgbuf_write");
+		if (n == 0)	/* connection closed */
+			shut = 1;
 	}
 
 	for (;;) {

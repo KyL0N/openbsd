@@ -1,4 +1,4 @@
-/* $OpenBSD: mem.c,v 1.37 2024/11/18 08:42:53 mvs Exp $ */
+/* $OpenBSD: mem.c,v 1.35 2024/06/23 22:08:37 kettenis Exp $ */
 /* $NetBSD: mem.c,v 1.26 2000/03/29 03:48:20 simonb Exp $ */
 
 /*
@@ -51,7 +51,6 @@
 #include <sys/msgbuf.h>
 #include <sys/mman.h>
 #include <sys/conf.h>
-#include <sys/atomic.h>
 
 #include <machine/cpu.h>
 
@@ -77,8 +76,7 @@ mmopen(dev_t dev, int flag, int mode, struct proc *p)
 	switch (minor(dev)) {
 	case 0:
 	case 1:
-		if ((int)atomic_load_int(&securelevel) <= 0 ||
-		    atomic_load_int(&allowkmem))
+		if (securelevel <= 0 || allowkmem)
 			break;
 		return (EPERM);
 	case 2:

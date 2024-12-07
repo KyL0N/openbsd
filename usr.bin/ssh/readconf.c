@@ -1,4 +1,4 @@
-/* $OpenBSD: readconf.c,v 1.394 2024/12/06 16:21:48 djm Exp $ */
+/* $OpenBSD: readconf.c,v 1.392 2024/09/26 23:55:08 djm Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -163,7 +163,6 @@ typedef enum {
 	oPubkeyAcceptedAlgorithms, oCASignatureAlgorithms, oProxyJump,
 	oSecurityKeyProvider, oKnownHostsCommand, oRequiredRSASize,
 	oEnableEscapeCommandline, oObscureKeystrokeTiming, oChannelTimeout,
-	oVersionAddendum,
 	oIgnore, oIgnoredUnknownOption, oDeprecated, oUnsupported
 } OpCodes;
 
@@ -314,7 +313,6 @@ static struct {
 	{ "enableescapecommandline", oEnableEscapeCommandline },
 	{ "obscurekeystroketiming", oObscureKeystrokeTiming },
 	{ "channeltimeout", oChannelTimeout },
-	{ "versionaddendum", oVersionAddendum },
 
 	{ NULL, oBadOption }
 };
@@ -2419,28 +2417,6 @@ parse_pubkey_algos:
 		}
 		break;
 
-	case oVersionAddendum:
-		if (str == NULL || *str == '\0')
-			fatal("%s line %d: %s missing argument.",
-			    filename, linenum, keyword);
-		len = strspn(str, WHITESPACE);
-		if (strchr(str + len, '\r') != NULL) {
-			fatal("%.200s line %d: Invalid %s argument",
-			    filename, linenum, keyword);
-		}
-		if ((arg = strchr(line, '#')) != NULL) {
-			*arg = '\0';
-			rtrim(line);
-		}
-		if (*activep && options->version_addendum == NULL) {
-			if (strcasecmp(str + len, "none") == 0)
-				options->version_addendum = xstrdup("");
-			else
-				options->version_addendum = xstrdup(str + len);
-		}
-		argv_consume(&ac);
-		break;
-
 	case oDeprecated:
 		debug("%s line %d: Deprecated option \"%s\"",
 		    filename, linenum, keyword);
@@ -2697,7 +2673,6 @@ initialize_options(Options * options)
 	options->tag = NULL;
 	options->channel_timeouts = NULL;
 	options->num_channel_timeouts = 0;
-	options->version_addendum = NULL;
 }
 
 /*
@@ -3405,8 +3380,6 @@ fmt_intarg(OpCodes code, int val)
 	switch (code) {
 	case oAddressFamily:
 		return fmt_multistate_int(val, multistate_addressfamily);
-	case oCompression:
-		return fmt_multistate_int(val, multistate_compression);
 	case oVerifyHostKeyDNS:
 	case oUpdateHostkeys:
 		return fmt_multistate_int(val, multistate_yesnoask);
@@ -3644,7 +3617,6 @@ dump_client_config(Options *o, const char *host)
 	dump_cfg_string(oXAuthLocation, o->xauth_location);
 	dump_cfg_string(oKnownHostsCommand, o->known_hosts_command);
 	dump_cfg_string(oTag, o->tag);
-	dump_cfg_string(oVersionAddendum, o->version_addendum);
 
 	/* Forwards */
 	dump_cfg_forwards(oDynamicForward, o->num_local_forwards, o->local_forwards);

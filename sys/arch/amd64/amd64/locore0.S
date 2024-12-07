@@ -1,4 +1,4 @@
-/*	$OpenBSD: locore0.S,v 1.26 2024/10/04 21:15:52 bluhm Exp $	*/
+/*	$OpenBSD: locore0.S,v 1.25 2024/07/21 19:41:31 bluhm Exp $	*/
 /*	$NetBSD: locore.S,v 1.13 2004/03/25 18:33:17 drochner Exp $	*/
 
 /*
@@ -269,33 +269,37 @@ cont:
 	orl	%edx, RELOC(cpu_feature)
 
 	/*
-	 * Determine AMD SEV capability.
+	 * Determine AMD SME and SEV capabilities.
 	 */
 	movl	$RELOC(cpu_vendor),%ebp
 	cmpl $0x68747541, (%ebp)	/* "Auth" */
-	jne	.Lno_sev
+	jne	.Lno_smesev
 	cmpl $0x69746e65, 4(%ebp)	/* "enti" */
-	jne	.Lno_sev
+	jne	.Lno_smesev
 	cmpl $0x444d4163, 8(%ebp)	/* "cAMD" */
-	jne	.Lno_sev
+	jne	.Lno_smesev
 
-	/* AMD CPU, check for SEV. */
+	/* AMD CPU, check for SME and SEV. */
 	movl	$0x8000001f, %eax
 	cpuid
+	pushl	%eax
+	andl	$CPUIDEAX_SME, %eax	/* SME */
+	popl	%eax
+	jz	.Lno_smesev
 	andl	$CPUIDEAX_SEV, %eax	/* SEV */
-	jz	.Lno_sev
+	jz	.Lno_smesev
 
 	/* Are we in guest mode with SEV enabled? */
 	movl	$MSR_SEV_STATUS, %ecx
 	rdmsr
 	andl	$SEV_STAT_ENABLED, %eax
-	jz	.Lno_sev
+	jz	.Lno_smesev
 
 	/* Determine C bit position */
 	movl	%ebx, %ecx	/* %ebx from previous cpuid */
 	andl	$0x3f, %ecx
 	cmpl	$0x20, %ecx	/* must be at least bit 32 (counting from 0) */
-	jl	.Lno_sev
+	jl	.Lno_smesev
 	xorl	%eax, %eax
 	movl	%eax, RELOC(pg_crypt)
 	subl	$0x20, %ecx
@@ -334,7 +338,7 @@ cont:
 
 	movl	$0x1, RELOC(cpu_sev_guestmode)	/* we are a SEV guest */
 
-.Lno_sev:
+.Lno_smesev:
 
 	/*
 	 * Finished with old stack; load new %esp now instead of later so we

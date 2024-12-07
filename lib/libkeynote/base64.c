@@ -1,4 +1,5 @@
-/* $OpenBSD: base64.c,v 1.13 2024/10/22 22:33:06 jsg Exp $ */
+/* $OpenBSD: base64.c,v 1.12 2023/04/13 18:20:21 tb Exp $ */
+/* $OpenBSD: base64.c,v 1.12 2023/04/13 18:20:21 tb Exp $ */
 /*
  * The author of this code is Angelos D. Keromytis (angelos@dsl.cis.upenn.edu)
  *

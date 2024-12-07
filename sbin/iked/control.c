@@ -1,4 +1,4 @@
-/*	$OpenBSD: control.c,v 1.45 2024/11/21 13:35:20 claudio Exp $	*/
+/*	$OpenBSD: control.c,v 1.39 2024/05/21 05:00:47 jsg Exp $	*/
 
 /*
  * Copyright (c) 2010-2013 Reyk Floeter <reyk@openbsd.org>
@@ -191,12 +191,7 @@ control_accept(int listenfd, short event, void *arg)
 		return;
 	}
 
-	if (imsgbuf_init(&c->iev.ibuf, connfd) == -1) {
-		log_warn("%s", __func__);
-		close(connfd);
-		free(c);
-		return;
-	}
+	imsg_init(&c->iev.ibuf, connfd);
 	c->iev.handler = control_dispatch_imsg;
 	c->iev.events = EV_READ;
 	c->iev.data = cs;
@@ -236,7 +231,7 @@ control_close(int fd, struct control_sock *cs)
 		return;
 	}
 
-	imsgbuf_clear(&c->iev.ibuf);
+	msgbuf_clear(&c->iev.ibuf.w);
 	TAILQ_REMOVE(&ctl_conns, c, entry);
 
 	event_del(&c->iev.ev);
@@ -266,13 +261,14 @@ control_dispatch_imsg(int fd, short event, void *arg)
 	}
 
 	if (event & EV_READ) {
-		if (imsgbuf_read(&c->iev.ibuf) != 1) {
+		if (((n = imsg_read(&c->iev.ibuf)) == -1 && errno != EAGAIN) ||
+		    n == 0) {
 			control_close(fd, cs);
 			return;
 		}
 	}
 	if (event & EV_WRITE) {
-		if (imsgbuf_write(&c->iev.ibuf) == -1) {
+		if (msgbuf_write(&c->iev.ibuf.w) <= 0 && errno != EAGAIN) {
 			control_close(fd, cs);
 			return;
 		}

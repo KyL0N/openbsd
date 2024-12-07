@@ -1,4 +1,4 @@
-/*	$OpenBSD: alloc.c,v 1.10 2024/11/05 14:49:52 miod Exp $	*/
+/*	$OpenBSD: alloc.c,v 1.9 2016/03/14 23:08:05 krw Exp $	*/
 /*	$NetBSD: alloc.c,v 1.1 2000/08/20 14:58:37 mrg Exp $	*/
 
 /*
@@ -94,10 +94,8 @@ LIST_HEAD(, ml) allocatedlist = LIST_HEAD_INITIALIZER(allocatedlist);
 void *
 alloc(unsigned size)
 {
-	struct ml *f, *bestf = NULL;
-#ifndef ALLOC_FIRST_FIT
+	struct ml *f, *bestf;
 	unsigned bestsize = 0xffffffff;	/* greater than any real size */
-#endif
 	char *help;
 	int failed;
 
@@ -134,7 +132,7 @@ alloc(unsigned size)
 	}
 
 	/* no match in freelist if bestsize unchanged */
-	failed = (bestsize == 0xffffffff || bestsize >= size * 2);
+	failed = (bestsize == 0xffffffff);
 #endif
 
 	if (failed) {	/* nothing found */
@@ -159,9 +157,7 @@ alloc(unsigned size)
 	/* we take the best fit */
 	f = bestf;
 
-#ifndef ALLOC_FIRST_FIT
  found:
-#endif
 	/* remove from freelist */
 	LIST_REMOVE(f, list);
 	help = (char *)f;

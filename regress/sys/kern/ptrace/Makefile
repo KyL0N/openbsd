@@ -1,6 +1,4 @@
-#	$OpenBSD: Makefile,v 1.4 2024/11/27 05:27:21 anton Exp $
-
-SUBDIR+=	xstate
+#	$OpenBSD: Makefile,v 1.3 2016/09/23 18:56:49 bluhm Exp $
 
 PROG=	ptrace
 

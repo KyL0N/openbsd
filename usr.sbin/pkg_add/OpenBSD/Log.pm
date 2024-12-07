@@ -1,5 +1,5 @@
 # ex:ts=8 sw=4:
-# $OpenBSD: Log.pm,v 1.11 2024/10/01 18:48:29 tb Exp $
+# $OpenBSD: Log.pm,v 1.10 2023/06/13 09:07:17 espie Exp $
 #
 # Copyright (c) 2007-2010 Marc Espie <espie@openbsd.org>
 #
@@ -104,24 +104,7 @@ sub fatal($self, @p)
 
 sub system($self, @p)
 {
-	my ($todo, $todo2);
-	if (ref $p[0] eq 'CODE') {
-		$todo = shift @p;
-	} else {
-		$todo = sub() {};
-	}
-	if (ref $p[0] eq 'CODE') {
-		$todo2 = shift @p;
-	} else {
-		$todo2 = sub() {};
-	}
-	my $child_pid = open(my $grab, "-|");
-	if (!defined $child_pid) {
-		$self->{p}->say("system(#1) was not run: #2 #3",
-		    join(", ", @p), $!, $self->{p}->child_error);
-	}
-	if ($child_pid) {
-		&$todo2();
+	if (open(my $grab, "-|", @p)) {
 		while (<$grab>) {
 			$self->{p}->_print($_);
 		}
@@ -132,9 +115,8 @@ sub system($self, @p)
 		}
 		return $?;
 	} else {
-		$DB::inhibit_exit = 0;
-		&$todo();
-		exec {$p[0]} (@p) or exit 1;
+		$self->{p}->say("system(#1) was not run: #2 #3",
+		    join(", ", @p), $!, $self->{p}->child_error);
 	}
 }
 

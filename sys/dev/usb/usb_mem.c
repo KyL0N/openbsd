@@ -1,4 +1,4 @@
-/*	$OpenBSD: usb_mem.c,v 1.36 2024/10/08 19:42:31 kettenis Exp $ */
+/*	$OpenBSD: usb_mem.c,v 1.35 2024/05/23 03:21:09 jsg Exp $ */
 /*	$NetBSD: usb_mem.c,v 1.26 2003/02/01 06:23:40 thorpej Exp $	*/
 
 /*
@@ -82,7 +82,7 @@ LIST_HEAD(, usb_frag_dma) usb_frag_freelist =
 
 usbd_status
 usb_block_allocmem(bus_dma_tag_t tag, size_t size, size_t align,
-    struct usb_dma_block **dmap, int flags)
+    struct usb_dma_block **dmap, int coherent)
 {
 	int error;
         struct usb_dma_block *p;
@@ -95,7 +95,7 @@ usb_block_allocmem(bus_dma_tag_t tag, size_t size, size_t align,
 	/* First check the free list. */
 	for (p = LIST_FIRST(&usb_blk_freelist); p; p = LIST_NEXT(p, next)) {
 		if (p->tag == tag && p->size >= size && p->align >= align &&
-		    p->flags == flags) {
+		    p->coherent == coherent) {
 			LIST_REMOVE(p, next);
 			usb_blk_nfree--;
 			splx(s);
@@ -115,25 +115,26 @@ usb_block_allocmem(bus_dma_tag_t tag, size_t size, size_t align,
 	p->tag = tag;
 	p->size = size;
 	p->align = align;
-	p->flags = flags;
+	p->coherent = coherent;
 	error = bus_dmamem_alloc(tag, p->size, align, 0,
-	    p->segs, nitems(p->segs), &p->nsegs,
-	    BUS_DMA_NOWAIT | (flags & BUS_DMA_64BIT));
+				 p->segs, nitems(p->segs),
+				 &p->nsegs, BUS_DMA_NOWAIT);
 	if (error)
 		goto free0;
 
 	error = bus_dmamem_map(tag, p->segs, p->nsegs, p->size,
-	    &p->kaddr, BUS_DMA_NOWAIT | (flags & BUS_DMA_COHERENT));
+			       &p->kaddr, BUS_DMA_NOWAIT | (coherent ?
+			       BUS_DMA_COHERENT : 0));
 	if (error)
 		goto free1;
 
 	error = bus_dmamap_create(tag, p->size, 1, p->size,
-	    0, BUS_DMA_NOWAIT | (flags & BUS_DMA_64BIT), &p->map);
+				  0, BUS_DMA_NOWAIT, &p->map);
 	if (error)
 		goto unmap;
 
 	error = bus_dmamap_load(tag, p->map, p->kaddr, p->size, NULL,
-	    BUS_DMA_NOWAIT);
+				BUS_DMA_NOWAIT);
 	if (error)
 		goto destroy;
 
@@ -188,17 +189,18 @@ usb_allocmem(struct usbd_bus *bus, size_t size, size_t align, int flags,
 	usbd_status err;
 	struct usb_frag_dma *f;
 	struct usb_dma_block *b;
+	int coherent;
 	int i;
 	int s;
 
-	flags = (flags & USB_DMA_COHERENT) ? BUS_DMA_COHERENT : 0;
-	flags |= bus->dmaflags;
+	coherent = !!(flags & USB_DMA_COHERENT);
 
 	/* If the request is large then just use a full block. */
 	if (size > USB_MEM_SMALL || align > USB_MEM_SMALL) {
 		DPRINTFN(1, ("%s: large alloc %d\n", __func__, (int)size));
 		size = (size + USB_MEM_BLOCK - 1) & ~(USB_MEM_BLOCK - 1);
-		err = usb_block_allocmem(tag, size, align, &p->block, flags);
+		err = usb_block_allocmem(tag, size, align, &p->block,
+		    coherent);
 		if (!err) {
 			p->block->frags = NULL;
 			p->offs = 0;
@@ -209,12 +211,12 @@ usb_allocmem(struct usbd_bus *bus, size_t size, size_t align, int flags,
 	s = splusb();
 	/* Check for free fragments. */
 	for (f = LIST_FIRST(&usb_frag_freelist); f; f = LIST_NEXT(f, next))
-		if (f->block->tag == tag && f->block->flags == flags)
+		if (f->block->tag == tag && f->block->coherent == coherent)
 			break;
 	if (f == NULL) {
 		DPRINTFN(1, ("usb_allocmem: adding fragments\n"));
 		err = usb_block_allocmem(tag, USB_MEM_BLOCK, USB_MEM_SMALL, &b,
-		    flags);
+		    coherent);
 		if (err) {
 			splx(s);
 			return (err);

@@ -1,4 +1,4 @@
-/*	$OpenBSD: xinstall.c,v 1.78 2024/10/17 15:38:38 millert Exp $	*/
+/*	$OpenBSD: xinstall.c,v 1.77 2022/12/04 23:50:50 cheloha Exp $	*/
 /*	$NetBSD: xinstall.c,v 1.9 1995/12/20 10:25:17 jonathan Exp $	*/
 
 /*
@@ -621,19 +621,13 @@ create_tempfile(char *path, char *temp, size_t tsize)
 {
 	char *p;
 
-	if (strlcpy(temp, path, tsize) >= tsize) {
-		errno = ENAMETOOLONG;
-		return(-1);
-	}
+	strlcpy(temp, path, tsize);
 	if ((p = strrchr(temp, '/')) != NULL)
 		p++;
 	else
 		p = temp;
 	*p = '\0';
-	if (strlcat(temp, "INS@XXXXXXXXXX", tsize) >= tsize) {
-		errno = ENAMETOOLONG;
-		return(-1);
-	}
+	strlcat(p, "INS@XXXXXXXXXX", tsize);
 
 	return(mkstemp(temp));
 }

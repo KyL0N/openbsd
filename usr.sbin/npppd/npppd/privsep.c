@@ -1,4 +1,4 @@
-/*	$OpenBSD: privsep.c,v 1.29 2024/11/21 13:43:10 claudio Exp $ */
+/*	$OpenBSD: privsep.c,v 1.26 2024/08/22 07:56:47 florian Exp $ */
 
 /*
  * Copyright (c) 2010 Yasuoka Masahiko <yasuoka@openbsd.org>
@@ -37,7 +37,6 @@
 
 #include "npppd.h"
 #include "ppp.h"
-#include "log.h"
 
 #ifndef nitems
 #define nitems(_a)	(sizeof((_a)) / sizeof((_a)[0]))
@@ -192,9 +191,7 @@ privsep_init(void)
 	close(pairsock[0]);
 	privsep_sock = pairsock[1];
 	privsep_pid = pid;
-	if (imsgbuf_init(&privsep_ibuf, privsep_sock) == -1)
-		goto fail;
-	imsgbuf_allow_fdpass(&privsep_ibuf);
+	imsg_init(&privsep_ibuf, privsep_sock);
 
 	return (0);
 	/* NOTREACHED */
@@ -210,7 +207,7 @@ fail:
 void
 privsep_fini(void)
 {
-	imsgbuf_clear(&privsep_ibuf);
+	imsg_clear(&privsep_ibuf);
 	if (privsep_sock >= 0) {
 		close(privsep_sock);
 		privsep_sock = -1;
@@ -243,7 +240,7 @@ priv_bind(int sock, const struct sockaddr *name, socklen_t namelen)
 
 	(void)imsg_compose(&privsep_ibuf, PRIVSEP_BIND, 0, 0, sock,
 	    &a, sizeof(a));
-	imsgbuf_flush(&privsep_ibuf);
+	imsg_flush(&privsep_ibuf);
 
 	return (privsep_common_resp());
 }
@@ -258,7 +255,7 @@ priv_socket(int domain, int type, int protocol)
 	a.protocol = protocol;
 	(void)imsg_compose(&privsep_ibuf, PRIVSEP_SOCKET, 0, 0, -1,
 	    &a, sizeof(a));
-	imsgbuf_flush(&privsep_ibuf);
+	imsg_flush(&privsep_ibuf);
 
 	return (privsep_recvfd());
 }
@@ -272,7 +269,7 @@ priv_open(const char *path, int flags)
 	a.flags = flags;
 	(void)imsg_compose(&privsep_ibuf, PRIVSEP_OPEN, 0, 0, -1,
 	    &a, sizeof(a));
-	imsgbuf_flush(&privsep_ibuf);
+	imsg_flush(&privsep_ibuf);
 
 	return (privsep_recvfd());
 }
@@ -319,7 +316,7 @@ priv_sendto(int s, const void *msg, int len, int flags,
 
 	(void)imsg_composev(&privsep_ibuf, PRIVSEP_SENDTO, 0, 0, s,
 	    iov, nitems(iov));
-	imsgbuf_flush(&privsep_ibuf);
+	imsg_flush(&privsep_ibuf);
 
 	return (privsep_common_resp());
 }
@@ -338,7 +335,7 @@ priv_unlink(const char *path)
 	strlcpy(a.path, path, sizeof(a.path));
 	(void)imsg_compose(&privsep_ibuf, PRIVSEP_UNLINK, 0, 0, -1,
 	    &a, sizeof(a));
-	imsgbuf_flush(&privsep_ibuf);
+	imsg_flush(&privsep_ibuf);
 
 	return (privsep_common_resp());
 }
@@ -360,7 +357,7 @@ priv_get_user_info(const char *path, const char *username,
 
 	(void)imsg_compose(&privsep_ibuf, PRIVSEP_GET_USER_INFO, 0, 0, -1,
 	    &a, sizeof(a));
-	imsgbuf_flush(&privsep_ibuf);
+	imsg_flush(&privsep_ibuf);
 
 	if ((n = imsg_read_and_get(&privsep_ibuf, &imsg)) == -1)
 		return (-1);
@@ -419,7 +416,7 @@ priv_get_if_addr(const char *ifname, struct in_addr *addr)
 
 	(void)imsg_compose(&privsep_ibuf, PRIVSEP_GET_IF_ADDR, 0, 0, -1,
 	    &a, sizeof(a));
-	imsgbuf_flush(&privsep_ibuf);
+	imsg_flush(&privsep_ibuf);
 
 	if (imsg_read_and_get(&privsep_ibuf, &imsg) == -1)
 		return (-1);
@@ -447,7 +444,7 @@ priv_delete_if_addr(const char *ifname)
 	strlcpy(a.ifname, ifname, sizeof(a.ifname));
 	(void)imsg_compose(&privsep_ibuf, PRIVSEP_DEL_IF_ADDR, 0, 0, -1,
 	    &a, sizeof(a));
-	imsgbuf_flush(&privsep_ibuf);
+	imsg_flush(&privsep_ibuf);
 
 	return (privsep_common_resp());
 }
@@ -461,7 +458,7 @@ priv_set_if_addr(const char *ifname, struct in_addr *addr)
 	a.addr = *addr;
 	(void)imsg_compose(&privsep_ibuf, PRIVSEP_SET_IF_ADDR, 0, 0, -1,
 	    &a, sizeof(a));
-	imsgbuf_flush(&privsep_ibuf);
+	imsg_flush(&privsep_ibuf);
 
 	return (privsep_common_resp());
 }
@@ -479,7 +476,7 @@ priv_get_if_flags(const char *ifname, int *pflags)
 
 	(void)imsg_compose(&privsep_ibuf, PRIVSEP_GET_IF_FLAGS, 0, 0, -1,
 	    &a, sizeof(a));
-	imsgbuf_flush(&privsep_ibuf);
+	imsg_flush(&privsep_ibuf);
 
 	if (imsg_read_and_get(&privsep_ibuf, &imsg) == -1)
 		return (-1);
@@ -507,7 +504,7 @@ priv_set_if_flags(const char *ifname, int flags)
 
 	(void)imsg_compose(&privsep_ibuf, PRIVSEP_SET_IF_FLAGS, 0, 0, -1,
 	    &a, sizeof(a));
-	imsgbuf_flush(&privsep_ibuf);
+	imsg_flush(&privsep_ibuf);
 
 	return (privsep_common_resp());
 }
@@ -568,11 +565,9 @@ privsep_priv_main(int sock)
 {
 	struct imsgbuf	 ibuf;
 
-	if (imsgbuf_init(&ibuf, sock) == -1)
-		fatal("imsgbuf_init");
-	imsgbuf_allow_fdpass(&ibuf);
+	imsg_init(&ibuf, sock);
 	privsep_priv_dispatch_imsg(&ibuf);
-	imsgbuf_clear(&ibuf);
+	imsg_clear(&ibuf);
 	close(sock);
 
 	exit(EXIT_SUCCESS);
@@ -606,7 +601,7 @@ privsep_priv_dispatch_imsg(struct imsgbuf *ibuf)
 			}
 			(void)imsg_compose(ibuf, PRIVSEP_OK, 0, 0, f,
 			    &r, sizeof(r));
-			imsgbuf_flush(ibuf);
+			imsg_flush(ibuf);
 		    }
 			break;
 		case PRIVSEP_SOCKET: {
@@ -627,7 +622,7 @@ privsep_priv_dispatch_imsg(struct imsgbuf *ibuf)
 			}
 			(void)imsg_compose(ibuf, PRIVSEP_OK, 0, 0, s,
 			    &r, sizeof(r));
-			imsgbuf_flush(ibuf);
+			imsg_flush(ibuf);
 		    }
 			break;
 		case PRIVSEP_UNLINK: {
@@ -645,7 +640,7 @@ privsep_priv_dispatch_imsg(struct imsgbuf *ibuf)
 
 			(void)imsg_compose(ibuf, PRIVSEP_OK, 0, 0, -1,
 			    &r, sizeof(r));
-			imsgbuf_flush(ibuf);
+			imsg_flush(ibuf);
 		    }
 			break;
 		case PRIVSEP_BIND: {
@@ -667,7 +662,7 @@ privsep_priv_dispatch_imsg(struct imsgbuf *ibuf)
 			}
 			(void)imsg_compose(ibuf, PRIVSEP_OK, 0, 0, -1,
 			    &r, sizeof(r));
-			imsgbuf_flush(ibuf);
+			imsg_flush(ibuf);
 		    }
 			break;
 		case PRIVSEP_GET_USER_INFO: {
@@ -744,7 +739,7 @@ on_broken_entry:
 			}
 			(void)imsg_compose(ibuf, PRIVSEP_OK, 0, 0, -1,
 			    &r, sizeof(r));
-			imsgbuf_flush(ibuf);
+			imsg_flush(ibuf);
 		    }
 			break;
 		case PRIVSEP_SENDTO: {
@@ -776,7 +771,7 @@ on_broken_entry:
 			}
 			(void)imsg_compose(ibuf, PRIVSEP_OK, 0, 0, -1,
 			    &r, sizeof(r));
-			imsgbuf_flush(ibuf);
+			imsg_flush(ibuf);
 		    }
 			break;
 		case PRIVSEP_GET_IF_ADDR: {
@@ -809,7 +804,7 @@ on_broken_entry:
 			}
 			(void)imsg_compose(ibuf, PRIVSEP_OK, 0, 0, -1,
 			    &r, sizeof(r));
-			imsgbuf_flush(ibuf);
+			imsg_flush(ibuf);
 		    }
 			break;
 		case PRIVSEP_SET_IF_ADDR: {
@@ -855,7 +850,7 @@ on_broken_entry:
 			}
 			(void)imsg_compose(ibuf, PRIVSEP_OK, 0, 0, -1,
 			    &r, sizeof(r));
-			imsgbuf_flush(ibuf);
+			imsg_flush(ibuf);
 		    }
 			break;
 		case PRIVSEP_DEL_IF_ADDR: {
@@ -883,7 +878,7 @@ on_broken_entry:
 			}
 			(void)imsg_compose(ibuf, PRIVSEP_OK, 0, 0, -1,
 			    &r, sizeof(r));
-			imsgbuf_flush(ibuf);
+			imsg_flush(ibuf);
 		    }
 			break;
 		case PRIVSEP_GET_IF_FLAGS: {
@@ -916,7 +911,7 @@ on_broken_entry:
 			}
 			(void)imsg_compose(ibuf, PRIVSEP_OK, 0, 0, -1,
 			    &r, sizeof(r));
-			imsgbuf_flush(ibuf);
+			imsg_flush(ibuf);
 		    }
 			break;
 		case PRIVSEP_SET_IF_FLAGS: {
@@ -945,7 +940,7 @@ on_broken_entry:
 			}
 			(void)imsg_compose(ibuf, PRIVSEP_OK, 0, 0, -1,
 			    &r, sizeof(r));
-			imsgbuf_flush(ibuf);
+			imsg_flush(ibuf);
 		    }
 			break;
 		}
@@ -959,8 +954,11 @@ imsg_read_and_get(struct imsgbuf *ibuf, struct imsg *imsg)
 	ssize_t	 n;
 
 	for (;;) {
-		if (imsgbuf_read(ibuf) != 1)
+		if ((n = imsg_read(ibuf)) <= 0) {
+			if (n == -1 && (errno == EAGAIN || errno == EINTR))
+				continue;
 			return (-1);
+		}
 		if ((n = imsg_get(ibuf, imsg)) < 0)
 			return (-1);
 		if (n == 0)

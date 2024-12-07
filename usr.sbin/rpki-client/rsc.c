@@ -1,4 +1,4 @@
-/*	$OpenBSD: rsc.c,v 1.37 2024/11/13 12:51:04 tb Exp $ */
+/*	$OpenBSD: rsc.c,v 1.35 2024/06/11 10:38:40 tb Exp $ */
 /*
  * Copyright (c) 2022 Theo Buehler <tb@openbsd.org>
  * Copyright (c) 2022 Job Snijders <job@fastly.com>
@@ -130,38 +130,38 @@ static int
 rsc_parse_aslist(const char *fn, struct rsc *rsc,
     const ConstrainedASIdentifiers *asids)
 {
-	int	 i, num_ases;
+	int	 i, asz;
 
 	if (asids == NULL)
 		return 1;
 
-	if ((num_ases = sk_ASIdOrRange_num(asids->asnum)) == 0) {
+	if ((asz = sk_ASIdOrRange_num(asids->asnum)) == 0) {
 		warnx("%s: RSC asID empty", fn);
 		return 0;
 	}
 
-	if (num_ases >= MAX_AS_SIZE) {
+	if (asz >= MAX_AS_SIZE) {
 		warnx("%s: too many AS number entries: limit %d",
 		    fn, MAX_AS_SIZE);
 		return 0;
 	}
 
-	if ((rsc->ases = calloc(num_ases, sizeof(struct cert_as))) == NULL)
+	rsc->as = calloc(asz, sizeof(struct cert_as));
+	if (rsc->as == NULL)
 		err(1, NULL);
 
-	for (i = 0; i < num_ases; i++) {
+	for (i = 0; i < asz; i++) {
 		const ASIdOrRange *aor;
 
 		aor = sk_ASIdOrRange_value(asids->asnum, i);
 
 		switch (aor->type) {
 		case ASIdOrRange_id:
-			if (!sbgp_as_id(fn, rsc->ases, &rsc->num_ases,
-			    aor->u.id))
+			if (!sbgp_as_id(fn, rsc->as, &rsc->asz, aor->u.id))
 				return 0;
 			break;
 		case ASIdOrRange_range:
-			if (!sbgp_as_range(fn, rsc->ases, &rsc->num_ases,
+			if (!sbgp_as_range(fn, rsc->as, &rsc->asz,
 			    aor->u.range))
 				return 0;
 			break;
@@ -181,7 +181,7 @@ rsc_parse_iplist(const char *fn, struct rsc *rsc,
 	const ConstrainedIPAddressFamily	*af;
 	const IPAddressOrRanges			*aors;
 	const IPAddressOrRange			*aor;
-	size_t					 num_ips;
+	size_t					 ipsz;
 	enum afi				 afi;
 	int					 i, j;
 
@@ -197,14 +197,14 @@ rsc_parse_iplist(const char *fn, struct rsc *rsc,
 		af = sk_ConstrainedIPAddressFamily_value(ipAddrBlocks, i);
 		aors = af->addressesOrRanges;
 
-		num_ips = rsc->num_ips + sk_IPAddressOrRange_num(aors);
-		if (num_ips >= MAX_IP_SIZE) {
+		ipsz = rsc->ipsz + sk_IPAddressOrRange_num(aors);
+		if (ipsz >= MAX_IP_SIZE) {
 			warnx("%s: too many IP address entries: limit %d",
 			    fn, MAX_IP_SIZE);
 			return 0;
 		}
 
-		rsc->ips = recallocarray(rsc->ips, rsc->num_ips, num_ips,
+		rsc->ips = recallocarray(rsc->ips, rsc->ipsz, ipsz,
 		    sizeof(struct cert_ip));
 		if (rsc->ips == NULL)
 			err(1, NULL);
@@ -219,12 +219,12 @@ rsc_parse_iplist(const char *fn, struct rsc *rsc,
 			switch (aor->type) {
 			case IPAddressOrRange_addressPrefix:
 				if (!sbgp_addr(fn, rsc->ips,
-				    &rsc->num_ips, afi, aor->u.addressPrefix))
+				    &rsc->ipsz, afi, aor->u.addressPrefix))
 					return 0;
 				break;
 			case IPAddressOrRange_addressRange:
 				if (!sbgp_addr_range(fn, rsc->ips,
-				    &rsc->num_ips, afi, aor->u.addressRange))
+				    &rsc->ipsz, afi, aor->u.addressRange))
 					return 0;
 				break;
 			default:
@@ -272,25 +272,25 @@ rsc_parse_checklist(const char *fn, struct rsc *rsc,
 	FileNameAndHash		*fh;
 	ASN1_IA5STRING		*fileName;
 	struct rscfile		*file;
-	size_t			 num_files, i;
+	size_t			 sz, i;
 
-	if ((num_files = sk_FileNameAndHash_num(checkList)) == 0) {
+	if ((sz = sk_FileNameAndHash_num(checkList)) == 0) {
 		warnx("%s: RSC checkList needs at least one entry", fn);
 		return 0;
 	}
 
-	if (num_files >= MAX_CHECKLIST_ENTRIES) {
-		warnx("%s: %zu exceeds checklist entry limit (%d)", fn,
-		    num_files, MAX_CHECKLIST_ENTRIES);
+	if (sz >= MAX_CHECKLIST_ENTRIES) {
+		warnx("%s: %zu exceeds checklist entry limit (%d)", fn, sz,
+		    MAX_CHECKLIST_ENTRIES);
 		return 0;
 	}
 
-	rsc->files = calloc(num_files, sizeof(struct rscfile));
+	rsc->files = calloc(sz, sizeof(struct rscfile));
 	if (rsc->files == NULL)
 		err(1, NULL);
-	rsc->num_files = num_files;
+	rsc->filesz = sz;
 
-	for (i = 0; i < num_files; i++) {
+	for (i = 0; i < sz; i++) {
 		fh = sk_FileNameAndHash_value(checkList, i);
 
 		file = &rsc->files[i];
@@ -458,14 +458,14 @@ rsc_free(struct rsc *p)
 	if (p == NULL)
 		return;
 
-	for (i = 0; i < p->num_files; i++)
+	for (i = 0; i < p->filesz; i++)
 		free(p->files[i].filename);
 
 	free(p->aia);
 	free(p->aki);
 	free(p->ski);
 	free(p->ips);
-	free(p->ases);
+	free(p->as);
 	free(p->files);
 	free(p);
 }

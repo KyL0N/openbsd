@@ -1,4 +1,4 @@
-/*	$OpenBSD: vm.c,v 1.110 2024/11/21 13:25:30 claudio Exp $	*/
+/*	$OpenBSD: vm.c,v 1.105 2024/09/11 15:42:52 bluhm Exp $	*/
 
 /*
  * Copyright (c) 2015 Mike Larkin <mlarkin@openbsd.org>
@@ -19,18 +19,28 @@
 #include <sys/param.h>	/* PAGE_SIZE, MAXCOMLEN */
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#include <sys/queue.h>
+#include <sys/wait.h>
+#include <sys/uio.h>
+#include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
 
+#include <dev/pci/pcireg.h>
 #include <dev/vmm/vmm.h>
+
+#include <net/if.h>
 
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
 #include <imsg.h>
+#include <limits.h>
 #include <poll.h>
 #include <pthread.h>
 #include <pthread_np.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,6 +48,8 @@
 #include <util.h>
 
 #include "atomicio.h"
+#include "loadfile.h"
+#include "mmio.h"
 #include "pci.h"
 #include "virtio.h"
 #include "vmd.h"
@@ -347,18 +359,17 @@ vm_dispatch_vmm(int fd, short event, void *arg)
 	int			 verbose;
 
 	if (event & EV_READ) {
-		if ((n = imsgbuf_read(ibuf)) == -1)
-			fatal("%s: imsgbuf_read", __func__);
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+			fatal("%s: imsg_read", __func__);
 		if (n == 0)
 			_exit(0);
 	}
 
 	if (event & EV_WRITE) {
-		if (imsgbuf_write(ibuf) == -1) {
-			if (errno == EPIPE)
-				_exit(0);
-			fatal("%s: imsgbuf_write fd %d", __func__, ibuf->fd);
-		}
+		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
+			fatal("%s: msgbuf_write fd %d", __func__, ibuf->fd);
+		if (n == 0)
+			_exit(0);
 	}
 
 	for (;;) {
@@ -415,7 +426,7 @@ vm_dispatch_vmm(int fd, short event, void *arg)
 			    imsg.hdr.peerid, imsg.hdr.pid, -1, &vmr,
 			    sizeof(vmr));
 			if (!vmr.vmr_result) {
-				imsgbuf_flush(&current_vm->vm_iev.ibuf);
+				imsg_flush(&current_vm->vm_iev.ibuf);
 				_exit(0);
 			}
 			break;
@@ -460,7 +471,7 @@ vm_shutdown(unsigned int cmd)
 	default:
 		fatalx("invalid vm ctl command: %d", cmd);
 	}
-	imsgbuf_flush(&current_vm->vm_iev.ibuf);
+	imsg_flush(&current_vm->vm_iev.ibuf);
 
 	if (sev_shutdown(current_vm))
 		log_warnx("%s: could not shutdown SEV", __func__);

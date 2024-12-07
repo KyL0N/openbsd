@@ -1,4 +1,4 @@
-/* $OpenBSD: conf_sap.c,v 1.18 2024/10/18 11:12:10 tb Exp $ */
+/* $OpenBSD: conf_sap.c,v 1.17 2024/08/31 09:54:31 tb Exp $ */
 /* Written by Stephen Henson (steve@openssl.org) for the OpenSSL
  * project 2001.
  */
@@ -78,12 +78,11 @@ static pthread_once_t openssl_configured = PTHREAD_ONCE_INIT;
 
 static const char *openssl_config_name;
 
-void ASN1_add_oid_module(void);
-
 static void
 OPENSSL_config_internal(void)
 {
-	ASN1_add_oid_module();
+	OPENSSL_load_builtin_modules();
+	/* Add others here? */
 
 	ERR_clear_error();
 	if (CONF_modules_load_file(NULL, openssl_config_name,

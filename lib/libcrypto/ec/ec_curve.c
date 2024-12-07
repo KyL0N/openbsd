@@ -1,4 +1,4 @@
-/* $OpenBSD: ec_curve.c,v 1.52 2024/12/06 04:35:03 tb Exp $ */
+/* $OpenBSD: ec_curve.c,v 1.43 2024/03/24 06:05:41 tb Exp $ */
 /*
  * Written by Nils Larsch for the OpenSSL project.
  */
@@ -69,21 +69,14 @@
  *
  */
 
-#include <limits.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include <openssl/opensslconf.h>
 
-#include <openssl/bn.h>
-#include <openssl/ec.h>
 #include <openssl/err.h>
 #include <openssl/objects.h>
 
 #include "ec_local.h"
-
-#ifdef ENABLE_SMALL_CURVES
 
 /* the nist prime curves */
 static const struct {
@@ -130,8 +123,6 @@ static const struct {
 		0xb4, 0xd2, 0x28, 0x31,
 	},
 };
-
-#endif /* ENABLE_SMALL_CURVES */
 
 static const struct {
 	uint8_t seed[20];
@@ -304,8 +295,6 @@ static const struct {
 	},
 };
 
-#ifdef ENABLE_SMALL_CURVES
-
 /* the x9.62 prime curves (minus the nist prime curves) */
 static const struct {
 	uint8_t seed[20];
@@ -396,8 +385,6 @@ static const struct {
 		0xf6, 0x40, 0xec, 0x13,
 	},
 };
-
-#endif /* ENABLE_SMALL_CURVES */
 
 static const struct {
 	uint8_t seed[20];
@@ -584,8 +571,6 @@ static const struct {
 		0x25, 0x51,
 	},
 };
-
-#ifdef ENABLE_SMALL_CURVES
 
 /* the secg prime curves (minus the nist and x9.62 prime curves) */
 static const struct {
@@ -914,8 +899,6 @@ static const struct {
 	},
 };
 
-#endif /* ENABLE_SMALL_CURVES */
-
 static const struct {
 	uint8_t p[29];
 	uint8_t a[29];
@@ -1001,8 +984,6 @@ static const struct {
 		0x41, 0x41,
 	},
 };
-
-#ifdef ENABLE_SMALL_CURVES
 
 /* some wap/wtls curves */
 static const struct {
@@ -1266,8 +1247,6 @@ static const struct {
 		0x9a, 0xc4, 0xac, 0xc1,
 	},
 };
-
-#endif /* ENABLE_SMALL_CURVES */
 
 static const struct {
 	uint8_t p[28];
@@ -1811,7 +1790,7 @@ static const struct {
 	},
 };
 
-static const struct ec_curve {
+static const struct ec_list_element {
 	const char *comment;
 	int nid;
 	int seed_len;
@@ -1824,9 +1803,8 @@ static const struct ec_curve {
 	const uint8_t *x;
 	const uint8_t *y;
 	const uint8_t *order;
-} ec_curve_list[] = {
+} curve_list[] = {
 	/* secg curves */
-#ifdef ENABLE_SMALL_CURVES
 	{
 		.comment = "SECG/WTLS curve over a 112 bit prime field",
 		.nid = NID_secp112r1,
@@ -1936,7 +1914,6 @@ static const struct ec_curve {
 		.order = _EC_SECG_PRIME_192K1.order,
 		.cofactor = 1,
 	},
-#endif /* ENABLE_SMALL_CURVES */
 	{
 		.comment = "SECG curve over a 224 bit prime field",
 		.nid = NID_secp224k1,
@@ -2005,7 +1982,6 @@ static const struct ec_curve {
 		.cofactor = 1,
 	},
 	/* X9.62 curves */
-#ifdef ENABLE_SMALL_CURVES
 	{
 		.comment = "NIST/X9.62/SECG curve over a 192 bit prime field",
 		.nid = NID_X9_62_prime192v1,
@@ -2048,7 +2024,6 @@ static const struct ec_curve {
 		.order = _EC_X9_62_PRIME_192V3.order,
 		.cofactor = 1,
 	},
-#endif /* ENABLE_SMALL_CURVES */
 	{
 		.comment = "X9.62 curve over a 239 bit prime field",
 		.nid = NID_X9_62_prime239v1,
@@ -2105,7 +2080,6 @@ static const struct ec_curve {
 		.order = _EC_X9_62_PRIME_256V1.order,
 		.cofactor = 1,
 	},
-#ifdef ENABLE_SMALL_CURVES
 	{
 		.comment = "SECG/WTLS curve over a 112 bit prime field",
 		.nid = NID_wap_wsg_idm_ecid_wtls6,
@@ -2121,7 +2095,6 @@ static const struct ec_curve {
 		.cofactor = 1,
 	},
 	{
-		/* XXX - this one's been wrong all along. Should use 160r1. */
 		.comment = "SECG/WTLS curve over a 160 bit prime field",
 		.nid = NID_wap_wsg_idm_ecid_wtls7,
 		.seed_len = sizeof(_EC_SECG_PRIME_160R2.seed),
@@ -2220,7 +2193,6 @@ static const struct ec_curve {
 		.order = _EC_brainpoolP192t1.order,
 		.cofactor = 1,
 	},
-#endif /* ENABLE_SMALL_CURVES */
 	{
 		.comment = "RFC 5639 curve over a 224 bit prime field",
 		.nid = NID_brainpoolP224r1,
@@ -2356,10 +2328,10 @@ static const struct ec_curve {
 	},
 };
 
-#define EC_CURVE_LIST_LENGTH (sizeof(ec_curve_list) / sizeof(ec_curve_list[0]))
+#define CURVE_LIST_LENGTH (sizeof(curve_list) / sizeof(curve_list[0]))
 
 static EC_GROUP *
-ec_group_new_from_data(const struct ec_curve *curve)
+ec_group_new_from_data(const struct ec_list_element *curve)
 {
 	EC_GROUP *group = NULL, *ret = NULL;
 	EC_POINT *generator = NULL;
@@ -2475,9 +2447,9 @@ EC_GROUP_new_by_curve_name(int nid)
 	if (nid <= 0)
 		return NULL;
 
-	for (i = 0; i < EC_CURVE_LIST_LENGTH; i++) {
-		if (ec_curve_list[i].nid == nid)
-			return ec_group_new_from_data(&ec_curve_list[i]);
+	for (i = 0; i < CURVE_LIST_LENGTH; i++) {
+		if (curve_list[i].nid == nid)
+			return ec_group_new_from_data(&curve_list[i]);
 	}
 
 	ECerror(EC_R_UNKNOWN_GROUP);
@@ -2485,246 +2457,22 @@ EC_GROUP_new_by_curve_name(int nid)
 }
 LCRYPTO_ALIAS(EC_GROUP_new_by_curve_name);
 
-static void
-ec_curve_free(struct ec_curve *curve)
-{
-	if (curve == NULL)
-		return;
-
-	/* PERM UGLY CASTS */
-	free((uint8_t *)curve->seed);
-	free((uint8_t *)curve->p);
-	free((uint8_t *)curve->a);
-	free((uint8_t *)curve->b);
-	free((uint8_t *)curve->x);
-	free((uint8_t *)curve->y);
-	free((uint8_t *)curve->order);
-
-	free(curve);
-}
-
-static int
-ec_curve_encode_parameter(const BIGNUM *bn, int param_len,
-    const uint8_t **out_param)
-{
-	uint8_t *buf = NULL;
-	int ret = 0;
-
-	if (out_param == NULL || *out_param != NULL)
-		goto err;
-
-	if ((buf = calloc(1, param_len)) == NULL)
-		goto err;
-	if (BN_bn2binpad(bn, buf, param_len) != param_len)
-		goto err;
-
-	*out_param = buf;
-	buf = NULL;
-
-	ret = 1;
-
- err:
-	free(buf);
-
-	return ret;
-}
-
-static struct ec_curve *
-ec_curve_from_group(const EC_GROUP *group)
-{
-	struct ec_curve *curve = NULL;
-	BN_CTX *ctx;
-	BIGNUM *p, *a, *b, *x, *y;
-	const EC_POINT *generator = NULL;
-	const BIGNUM *order, *cofactor;
-	size_t seed_len;
-
-	if ((ctx = BN_CTX_new()) == NULL)
-		goto err;
-	BN_CTX_start(ctx);
-
-	if ((p = BN_CTX_get(ctx)) == NULL)
-		goto err;
-	if ((a = BN_CTX_get(ctx)) == NULL)
-		goto err;
-	if ((b = BN_CTX_get(ctx)) == NULL)
-		goto err;
-	if ((x = BN_CTX_get(ctx)) == NULL)
-		goto err;
-	if ((y = BN_CTX_get(ctx)) == NULL)
-		goto err;
-
-	if (!EC_GROUP_get_curve(group, p, a, b, ctx))
-		goto err;
-	if ((generator = EC_GROUP_get0_generator(group)) == NULL)
-		goto err;
-	if (!EC_POINT_get_affine_coordinates(group, generator, x, y, ctx))
-		goto err;
-	if ((order = EC_GROUP_get0_order(group)) == NULL)
-		goto err;
-
-	if ((curve = calloc(1, sizeof(*curve))) == NULL)
-		goto err;
-
-	curve->param_len = BN_num_bytes(p);
-	if (BN_num_bytes(order) > curve->param_len)
-		curve->param_len = BN_num_bytes(order);
-
-	if (!ec_curve_encode_parameter(p, curve->param_len, &curve->p))
-		goto err;
-	if (!ec_curve_encode_parameter(a, curve->param_len, &curve->a))
-		goto err;
-	if (!ec_curve_encode_parameter(b, curve->param_len, &curve->b))
-		goto err;
-	if (!ec_curve_encode_parameter(x, curve->param_len, &curve->x))
-		goto err;
-	if (!ec_curve_encode_parameter(y, curve->param_len, &curve->y))
-		goto err;
-	if (!ec_curve_encode_parameter(order, curve->param_len, &curve->order))
-		goto err;
-
-	if ((cofactor = EC_GROUP_get0_cofactor(group)) != NULL) {
-		BN_ULONG cofactor_word;
-
-		if ((cofactor_word = BN_get_word(cofactor)) == BN_MASK2)
-			goto err;
-		if (cofactor_word > INT_MAX)
-			goto err;
-
-		curve->cofactor = cofactor_word;
-	}
-
-	if ((seed_len = EC_GROUP_get_seed_len(group)) > 0) {
-		uint8_t *seed;
-
-		if (seed_len > INT_MAX)
-			goto err;
-		if ((seed = calloc(1, seed_len)) == NULL)
-			goto err;
-		memcpy(seed, EC_GROUP_get0_seed(group), seed_len);
-
-		curve->seed = seed;
-		curve->seed_len = seed_len;
-	}
-
-	BN_CTX_end(ctx);
-	BN_CTX_free(ctx);
-
-	return curve;
-
- err:
-	BN_CTX_end(ctx);
-	BN_CTX_free(ctx);
-
-	ec_curve_free(curve);
-
-	return NULL;
-}
-
-static int
-ec_curve_cmp(const struct ec_curve *a, const struct ec_curve *b)
-{
-	int cmp;
-
-	/* Treat nid as optional. The OID isn't part of EC parameters. */
-	if (a->nid != NID_undef && b->nid != NID_undef) {
-		if (a->nid < b->nid)
-			return -1;
-		if (a->nid > b->nid)
-			return 1;
-	}
-
-	if (a->cofactor < b->cofactor)
-		return -1;
-	if (a->cofactor > b->cofactor)
-		return 1;
-	if (a->param_len < b->param_len)
-		return -1;
-	if (a->param_len > b->param_len)
-		return 1;
-
-	if ((cmp = memcmp(a->p, b->p, a->param_len)) != 0)
-		return cmp;
-	if ((cmp = memcmp(a->a, b->a, a->param_len)) != 0)
-		return cmp;
-	if ((cmp = memcmp(a->b, b->b, a->param_len)) != 0)
-		return cmp;
-	if ((cmp = memcmp(a->x, b->x, a->param_len)) != 0)
-		return cmp;
-	if ((cmp = memcmp(a->y, b->y, a->param_len)) != 0)
-		return cmp;
-	if ((cmp = memcmp(a->order, b->order, a->param_len)) != 0)
-		return cmp;
-
-	/* Seed is optional, not used for computation. Must match if present. */
-	if (a->seed_len != 0 && b->seed_len != 0) {
-		if (a->seed_len < b->seed_len)
-			return -1;
-		if (a->seed_len > b->seed_len)
-			return 1;
-		if (a->seed != NULL && b->seed != NULL) {
-			if ((cmp = memcmp(a->seed, b->seed, a->seed_len)) != 0)
-				return cmp;
-		}
-	}
-
-	return 0;
-}
-
-static int
-ec_group_nid_from_curve(const struct ec_curve *curve)
-{
-	size_t i;
-
-	for (i = 0; i < EC_CURVE_LIST_LENGTH; i++) {
-		if (ec_curve_cmp(curve, &ec_curve_list[i]) == 0)
-			return ec_curve_list[i].nid;
-	}
-
-	return NID_undef;
-}
-
-int
-ec_group_is_builtin_curve(const EC_GROUP *group, int *out_nid)
-{
-	struct ec_curve *curve;
-	int ret = 0;
-	int nid;
-
-	*out_nid = NID_undef;
-
-	if ((curve = ec_curve_from_group(group)) == NULL)
-		goto err;
-	if ((nid = ec_group_nid_from_curve(curve)) == NID_undef)
-		goto err;
-
-	*out_nid = nid;
-
-	ret = 1;
-
- err:
-	ec_curve_free(curve);
-
-	return ret;
-}
-
 size_t
-EC_get_builtin_curves(EC_builtin_curve *curves, size_t nitems)
+EC_get_builtin_curves(EC_builtin_curve *r, size_t nitems)
 {
-	size_t i;
+	size_t i, min;
 
-	if (curves == NULL || nitems == 0)
-		return EC_CURVE_LIST_LENGTH;
+	if (r == NULL || nitems == 0)
+		return CURVE_LIST_LENGTH;
 
-	if (nitems > EC_CURVE_LIST_LENGTH)
-		nitems = EC_CURVE_LIST_LENGTH;
+	min = nitems < CURVE_LIST_LENGTH ? nitems : CURVE_LIST_LENGTH;
 
-	for (i = 0; i < nitems; i++) {
-		curves[i].nid = ec_curve_list[i].nid;
-		curves[i].comment = ec_curve_list[i].comment;
+	for (i = 0; i < min; i++) {
+		r[i].nid = curve_list[i].nid;
+		r[i].comment = curve_list[i].comment;
 	}
 
-	return EC_CURVE_LIST_LENGTH;
+	return CURVE_LIST_LENGTH;
 }
 LCRYPTO_ALIAS(EC_get_builtin_curves);
 

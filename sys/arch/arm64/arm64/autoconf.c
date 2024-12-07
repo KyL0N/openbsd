@@ -1,4 +1,4 @@
-/*	$OpenBSD: autoconf.c,v 1.16 2024/11/10 06:51:59 jsg Exp $	*/
+/*	$OpenBSD: autoconf.c,v 1.15 2024/07/17 15:21:59 kettenis Exp $	*/
 /*
  * Copyright (c) 2009 Miodrag Vallat.
  *
@@ -21,7 +21,7 @@
 #include <sys/reboot.h>
 #include <sys/hibernate.h>
 #include <sys/systm.h>
-#include <uvm/uvm_extern.h>
+#include <uvm/uvm.h>
 
 #if defined(NFSCLIENT)
 #include <net/if.h>

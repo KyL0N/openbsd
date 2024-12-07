@@ -1,4 +1,4 @@
-/*	$OpenBSD: stfclock.c,v 1.14 2024/10/17 01:57:18 jsg Exp $	*/
+/*	$OpenBSD: stfclock.c,v 1.13 2024/02/17 12:01:45 kettenis Exp $	*/
 /*
  * Copyright (c) 2022 Mark Kettenis <kettenis@openbsd.org>
  * Copyright (c) 2023 Joel Sing <jsing@openbsd.org>
@@ -19,7 +19,9 @@
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/device.h>
+#include <sys/malloc.h>
 
+#include <machine/intr.h>
 #include <machine/bus.h>
 #include <machine/fdt.h>
 

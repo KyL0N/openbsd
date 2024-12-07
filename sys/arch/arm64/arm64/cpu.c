@@ -1,4 +1,4 @@
-/*	$OpenBSD: cpu.c,v 1.134 2024/11/10 06:51:59 jsg Exp $	*/
+/*	$OpenBSD: cpu.c,v 1.132 2024/09/23 13:50:33 jsg Exp $	*/
 
 /*
  * Copyright (c) 2016 Dale Rahn <drahn@dalerahn.com>
@@ -29,7 +29,7 @@
 #include <sys/user.h>
 #include <sys/kstat.h>
 
-#include <uvm/uvm_extern.h>
+#include <uvm/uvm.h>
 
 #include <machine/fdt.h>
 #include <machine/elf.h>
@@ -1179,8 +1179,8 @@ cpu_identify_cleanup(void)
 	if (ID_AA64PFR0_FP(cpu_id_aa64pfr0) != ID_AA64PFR0_FP_NONE &&
 	    ID_AA64PFR0_FP(cpu_id_aa64pfr0) >= ID_AA64PFR0_FP_HP)
 		hwcap |= HWCAP_FPHP;
-	if (ID_AA64PFR0_ADV_SIMD(cpu_id_aa64pfr0) != ID_AA64PFR0_ADV_SIMD_NONE &&
-	    ID_AA64PFR0_ADV_SIMD(cpu_id_aa64pfr0) >= ID_AA64PFR0_ADV_SIMD_HP)
+	if (ID_AA64PFR0_FP(cpu_id_aa64pfr0) != ID_AA64PFR0_ADV_SIMD_NONE &&
+	    ID_AA64PFR0_FP(cpu_id_aa64pfr0) >= ID_AA64PFR0_ADV_SIMD_HP)
 		hwcap |= HWCAP_ASIMDHP;
 	id_aa64mmfr2 = READ_SPECIALREG(id_aa64mmfr2_el1);
 	if (ID_AA64MMFR2_IDS(id_aa64mmfr2) >= ID_AA64MMFR2_IDS_IMPL)

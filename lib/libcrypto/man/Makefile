@@ -1,4 +1,4 @@
-# $OpenBSD: Makefile,v 1.299 2024/12/06 14:27:49 schwarze Exp $
+# $OpenBSD: Makefile,v 1.294 2024/09/02 08:04:32 tb Exp $
 
 .include <bsd.own.mk>
 
@@ -178,14 +178,17 @@ MAN=	\
 	EVP_PKEY_CTX_set_hkdf_md.3 \
 	EVP_PKEY_CTX_set_tls1_prf_md.3 \
 	EVP_PKEY_asn1_get_count.3 \
+	EVP_PKEY_asn1_new.3 \
+	EVP_PKEY_check.3 \
 	EVP_PKEY_cmp.3 \
 	EVP_PKEY_decrypt.3 \
 	EVP_PKEY_derive.3 \
 	EVP_PKEY_encrypt.3 \
 	EVP_PKEY_get_default_digest_nid.3 \
 	EVP_PKEY_keygen.3 \
+	EVP_PKEY_meth_get0_info.3 \
+	EVP_PKEY_meth_new.3 \
 	EVP_PKEY_new.3 \
-	EVP_PKEY_new_CMAC_key.3 \
 	EVP_PKEY_print_private.3 \
 	EVP_PKEY_set1_RSA.3 \
 	EVP_PKEY_sign.3 \
@@ -377,6 +380,7 @@ MAN=	\
 	X509v3_addr_inherits.3 \
 	X509v3_addr_subset.3 \
 	X509v3_addr_validate_path.3 \
+	X509v3_asid_add_id_or_range.3 \
 	X509v3_asid_add_id_or_range.3 \
 	X509v3_get_ext_by_NID.3 \
 	a2d_ASN1_OBJECT.3 \

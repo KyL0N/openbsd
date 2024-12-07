@@ -1,4 +1,4 @@
-/*	$OpenBSD: x509.c,v 1.105 2024/12/03 14:51:09 job Exp $ */
+/*	$OpenBSD: x509.c,v 1.101 2024/09/12 10:33:25 tb Exp $ */
 /*
  * Copyright (c) 2022 Theo Buehler <tb@openbsd.org>
  * Copyright (c) 2021 Claudio Jeker <claudio@openbsd.org>
@@ -413,8 +413,7 @@ char *
 x509_get_pubkey(X509 *x, const char *fn)
 {
 	EVP_PKEY	*pkey;
-	const EC_KEY	*eckey;
-	const EC_GROUP	*ecg;
+	EC_KEY		*eckey;
 	int		 nid;
 	const char	*cname;
 	uint8_t		*pubkey = NULL;
@@ -438,21 +437,7 @@ x509_get_pubkey(X509 *x, const char *fn)
 		goto out;
 	}
 
-	if ((ecg = EC_KEY_get0_group(eckey)) == NULL) {
-		warnx("%s: EC_KEY_get0_group failed", fn);
-		goto out;
-	}
-
-	if (EC_GROUP_get_asn1_flag(ecg) != OPENSSL_EC_NAMED_CURVE) {
-		warnx("%s: curve encoding issue", fn);
-		goto out;
-	}
-
-	if (EC_GROUP_get_point_conversion_form(ecg) !=
-	    POINT_CONVERSION_UNCOMPRESSED)
-		warnx("%s: unconventional point encoding", fn);
-
-	nid = EC_GROUP_get_curve_name(ecg);
+	nid = EC_GROUP_get_curve_name(EC_KEY_get0_group(eckey));
 	if (nid != NID_X9_62_prime256v1) {
 		if ((cname = EC_curve_nid2nist(nid)) == NULL)
 			cname = nid2str(nid);
@@ -1038,6 +1023,11 @@ x509_seqnum_to_bn(const char *fn, const char *descr, const ASN1_INTEGER *i)
 {
 	BIGNUM *bn = NULL;
 
+	if (ASN1_STRING_length(i) > 20) {
+		warnx("%s: %s should fit in 20 octets", fn, descr);
+		goto out;
+	}
+
 	if ((bn = ASN1_INTEGER_to_BN(i, NULL)) == NULL) {
 		warnx("%s: %s: ASN1_INTEGER_to_BN error", fn, descr);
 		goto out;
@@ -1045,12 +1035,6 @@ x509_seqnum_to_bn(const char *fn, const char *descr, const ASN1_INTEGER *i)
 
 	if (BN_is_negative(bn)) {
 		warnx("%s: %s should be non-negative", fn, descr);
-		goto out;
-	}
-
-	/* Reject values larger than or equal to 2^159. */
-	if (BN_num_bytes(bn) > 20 || BN_is_bit_set(bn, 159)) {
-		warnx("%s: %s should fit in 20 octets", fn, descr);
 		goto out;
 	}
 

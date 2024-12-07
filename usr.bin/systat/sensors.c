@@ -1,4 +1,4 @@
-/*	$OpenBSD: sensors.c,v 1.33 2024/11/08 08:45:47 matthieu Exp $	*/
+/*	$OpenBSD: sensors.c,v 1.32 2020/07/15 07:13:56 kettenis Exp $	*/
 
 /*
  * Copyright (c) 2007 Deanna Phillips <deanna@openbsd.org>
@@ -29,7 +29,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <util.h>
 #include "systat.h"
 
 struct sensor sensor;
@@ -275,12 +274,7 @@ showsensor(struct sensinfo *s)
 		tbprintf("%3.2f%%", s->sn_value / 1000.0);
 		break;
 	case SENSOR_FREQ:
-		if (humanreadable) {
-			char buf[FMT_SCALED_STRSIZE];
-			fmt_scaled(s->sn_value / 1000000.0, buf);
-			tbprintf("%sHz", buf);
-		} else
-			tbprintf("%11.2f Hz", s->sn_value / 1000000.0);
+		tbprintf("%11.2f Hz", s->sn_value / 1000000.0);
 		break;
 	case SENSOR_ANGLE:
 		tbprintf("%3.4f degrees", s->sn_value / 1000000.0);

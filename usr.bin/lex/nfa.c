@@ -1,4 +1,4 @@
-/*	$OpenBSD: nfa.c,v 1.12 2024/11/09 18:03:44 op Exp $	*/
+/*	$OpenBSD: nfa.c,v 1.11 2015/11/19 22:52:40 tedu Exp $	*/
 
 /* nfa - NFA construction routines */
 
@@ -48,7 +48,8 @@ void mkxtion PROTO((int, int));
  */
 
 void 
-add_accept(int mach, int accepting_number)
+add_accept(mach, accepting_number)
+	int mach, accepting_number;
 {
 	/*
 	 * Hang the accepting number off an epsilon state.  if it is
@@ -81,7 +82,8 @@ add_accept(int mach, int accepting_number)
  */
 
 int 
-copysingl(int singl, int num)
+copysingl(singl, num)
+	int singl, num;
 {
 	int copy, i;
 
@@ -97,7 +99,9 @@ copysingl(int singl, int num)
 /* dumpnfa - debugging routine to write out an nfa */
 
 void 
-dumpnfa(int state1)
+dumpnfa(state1)
+	int state1;
+
 {
 	int sym, tsp1, tsp2, anum, ns;
 
@@ -152,7 +156,8 @@ dumpnfa(int state1)
  */
 
 int 
-dupmachine(int mach)
+dupmachine(mach)
+	int mach;
 {
 	int i, init, state_offset;
 	int state = 0;
@@ -199,8 +204,9 @@ dupmachine(int mach)
  */
 
 void 
-finish_rule(int mach, int variable_trail_rule, int headcnt, int trailcnt,
-    int pcont_act)
+finish_rule(mach, variable_trail_rule, headcnt, trailcnt,
+    pcont_act)
+	int mach, variable_trail_rule, headcnt, trailcnt, pcont_act;
 {
 	char action_text[MAXLINE];
 
@@ -313,7 +319,8 @@ finish_rule(int mach, int variable_trail_rule, int headcnt, int trailcnt,
  */
 
 int 
-link_machines(int first, int last)
+link_machines(first, last)
+	int first, last;
 {
 	if (first == NIL)
 		return last;
@@ -340,7 +347,8 @@ link_machines(int first, int last)
  */
 
 void 
-mark_beginning_as_normal(int mach)
+mark_beginning_as_normal(mach)
+	int mach;
 {
 	switch (state_type[mach]) {
 	case STATE_NORMAL:
@@ -382,7 +390,8 @@ mark_beginning_as_normal(int mach)
  */
 
 int 
-mkbranch(int first, int second)
+mkbranch(first, second)
+	int first, second;
 {
 	int eps;
 
@@ -410,7 +419,8 @@ mkbranch(int first, int second)
  */
 
 int 
-mkclos(int state)
+mkclos(state)
+	int state;
 {
 	return mkopt(mkposcl(state));
 }
@@ -431,7 +441,8 @@ mkclos(int state)
  */
 
 int 
-mkopt(int mach)
+mkopt(mach)
+	int mach;
 {
 	int eps;
 
@@ -468,7 +479,8 @@ mkopt(int mach)
  */
 
 int 
-mkor(int first, int second)
+mkor(first, second)
+	int first, second;
 {
 	int eps, orend;
 
@@ -522,7 +534,8 @@ mkor(int first, int second)
  */
 
 int 
-mkposcl(int state)
+mkposcl(state)
+	int state;
 {
 	int eps;
 
@@ -550,7 +563,8 @@ mkposcl(int state)
  */
 
 int 
-mkrep(int mach, int lb, int ub)
+mkrep(mach, lb, ub)
+	int mach, lb, ub;
 {
 	int base_mach, tail, copy, i;
 
@@ -595,7 +609,8 @@ mkrep(int mach, int lb, int ub)
  */
 
 int 
-mkstate(int sym)
+mkstate(sym)
+	int sym;
 {
 	if (++lastnfa >= current_mns) {
 		if ((current_mns += MNS_INCREMENT) >= maximum_mns)
@@ -671,7 +686,8 @@ mkstate(int sym)
  */
 
 void 
-mkxtion(int statefrom, int stateto)
+mkxtion(statefrom, stateto)
+	int statefrom, stateto;
 {
 	if (trans1[statefrom] == NO_TRANSITION)
 		trans1[statefrom] = stateto;
@@ -689,7 +705,7 @@ mkxtion(int statefrom, int stateto)
 /* new_rule - initialize for a new rule */
 
 void 
-new_rule(void)
+new_rule()
 {
 	if (++num_rules >= current_max_rules) {
 		++num_reallocs;

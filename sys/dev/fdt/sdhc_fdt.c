@@ -1,4 +1,4 @@
-/*	$OpenBSD: sdhc_fdt.c,v 1.21 2024/10/09 00:38:26 jsg Exp $	*/
+/*	$OpenBSD: sdhc_fdt.c,v 1.20 2023/04/08 05:40:54 jsg Exp $	*/
 /*
  * Copyright (c) 2017 Mark Kettenis
  *
@@ -111,8 +111,7 @@ int	sdhc_fdt_match(struct device *, void *, void *);
 void	sdhc_fdt_attach(struct device *, struct device *, void *);
 
 const struct cfattach sdhc_fdt_ca = {
-	sizeof(struct sdhc_fdt_softc), sdhc_fdt_match, sdhc_fdt_attach,
-	NULL, sdhc_activate
+	sizeof(struct sdhc_fdt_softc), sdhc_fdt_match, sdhc_fdt_attach
 };
 
 int	sdhc_fdt_card_detect(struct sdhc_softc *);

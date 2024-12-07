@@ -1,6 +1,6 @@
 #!/bin/ksh
 #
-# $OpenBSD: sysupgrade.sh,v 1.57 2024/10/25 03:42:06 deraadt Exp $
+# $OpenBSD: sysupgrade.sh,v 1.54 2024/09/25 13:55:23 sthen Exp $
 #
 # Copyright (c) 1997-2015 Todd Miller, Theo de Raadt, Ken Westerback
 # Copyright (c) 2015 Robert Peichaer <rpe@openbsd.org>
@@ -35,7 +35,7 @@ err()
 
 usage()
 {
-	echo "usage: ${0##*/} [-fkns] [-b base-directory] [-R version] [installurl | path]" 1>&2
+	echo "usage: ${0##*/} [-fkns] [-b base-directory] [-R version] [installurl]" 1>&2
 	return 1
 }
 
@@ -73,7 +73,6 @@ rmel() {
 }
 
 SNAP=false
-FILE=false
 FORCE=false
 FORCE_VERSION=false
 KEEP=false
@@ -112,7 +111,7 @@ case $# in
 *)	usage
 esac
 [[ $MIRROR == @(file|ftp|http|https)://* ]] ||
-	FILE=true
+	err "invalid installurl: $MIRROR"
 $FORCE_VERSION && $SNAP &&
 	err "incompatible options: -s -R $NEXT_VERSION"
 $FORCE && ! $SNAP &&
@@ -124,12 +123,6 @@ if $SNAP; then
 else
 	URL=${MIRROR}/${NEXT_VERSION}/${ARCH}/
 	$FORCE_VERSION || ALT_URL=${MIRROR}/${VERSION}/${ARCH}/
-fi
-
-# Oh wait, this is a path install
-if $FILE; then
-	URL=file://$MIRROR/
-	ALT_URL=
 fi
 
 install -d -o 0 -g 0 -m 0755 ${SETSDIR}
@@ -147,24 +140,11 @@ if ! unpriv -f SHA256.sig ftp -N sysupgrade -Vmo SHA256.sig ${URL}SHA256.sig; th
 	fi
 fi
 
-# The key extracted from SHA256.sig must precisely match a pattern
-KEY=$(head -1 < SHA256.sig | cut -d' ' -f5 | \
-	egrep '^openbsd-[[:digit:]]{2,3}-base.pub$' || true)
-if [[ -z $KEY ]]; then
-	echo "Invalid SHA256.sig file"
+SHORT_VERSION=${NEXT_VERSION%.*}${NEXT_VERSION#*.}
+if ! [[ -r /etc/signify/openbsd-${SHORT_VERSION}-base.pub ]]; then
+	echo "${0##*/}: signify key not found; download into /etc/signify from" 1>&2
+	echo "https://ftp.openbsd.org/pub/OpenBSD/signify/openbsd-${SHORT_VERSION}-base.pub" 1>&2
 	exit 1
-fi
-
-# If required key is not in the system, get it from a signed bundle
-if ! [[ -r /etc/signify/$KEY ]]; then
-	HAVEKEY=$(cd /etc/signify && ls -1 openbsd-*-base.pub | \
-	    tail -2 | head -1 | cut -d- -f2)
-	BUNDLE=sigbundle-${HAVEKEY}.tgz
-	FWKEY=$(echo $KEY | sed -e 's/base/fw/')
-	echo "Adding missing keys from bundle $BUNDLE"
-	unpriv -f ${BUNDLE} ftp -N sysupgrade -Vmo $BUNDLE https://ftp.openbsd.org/pub/OpenBSD/signify/$BUNDLE
-	signify -Vzq -m - -x $BUNDLE | (cd /etc/signify && tar xfz - $KEY $FWKEY)
-	rm $BUNDLE
 fi
 
 unpriv -f SHA256 signify -Ve -x SHA256.sig -m SHA256

@@ -755,7 +755,7 @@
 ./usr/lib/libelf.so.3.0
 ./usr/lib/libevent.so.4.1
 ./usr/lib/libexecinfo.so.3.0
-./usr/lib/libexpat.so.15.0
+./usr/lib/libexpat.so.14.1
 ./usr/lib/libfido2.so.7.0
 ./usr/lib/libform.so.7.0
 ./usr/lib/libformw.so.7.0
@@ -783,7 +783,7 @@
 ./usr/lib/libtermlib.so.15.0
 ./usr/lib/libtls.so.31.0
 ./usr/lib/libusbhid.so.7.1
-./usr/lib/libutil.so.20.0
+./usr/lib/libutil.so.18.0
 ./usr/lib/libz.so.7.1
 ./usr/lib/locate
 ./usr/lib/locate/src.db
@@ -2552,7 +2552,6 @@
 ./usr/libexec/ssh-pkcs11-helper
 ./usr/libexec/ssh-sk-helper
 ./usr/libexec/sshd-session
-./usr/libexec/sshd-auth
 ./usr/libexec/tradcpp
 ./usr/libexec/vi.recover
 ./usr/local
@@ -3002,8 +3001,6 @@
 ./usr/share/relink/usr/lib/libcrypto.so.55.0.a
 ./usr/share/relink/usr/libexec
 ./usr/share/relink/usr/libexec/ld.so.a
-./usr/share/relink/usr/libexec/sshd-auth
-./usr/share/relink/usr/libexec/sshd-auth/sshd-auth.tar
 ./usr/share/relink/usr/libexec/sshd-session
 ./usr/share/relink/usr/libexec/sshd-session/sshd-session.tar
 ./usr/share/relink/usr/sbin

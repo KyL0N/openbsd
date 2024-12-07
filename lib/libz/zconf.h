@@ -233,12 +233,10 @@
 #  endif
 #endif
 
-#ifndef z_const
-#  ifdef ZLIB_CONST
-#    define z_const const
-#  else
-#    define z_const
-#  endif
+#if defined(ZLIB_CONST) && !defined(z_const)
+#  define z_const const
+#else
+#  define z_const
 #endif
 
 #ifdef Z_SOLO

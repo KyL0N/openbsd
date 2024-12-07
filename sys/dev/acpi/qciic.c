@@ -1,4 +1,4 @@
-/*	$OpenBSD: qciic.c,v 1.7 2024/10/02 21:21:32 kettenis Exp $	*/
+/*	$OpenBSD: qciic.c,v 1.6 2024/06/19 21:27:22 patrick Exp $	*/
 /*
  * Copyright (c) 2022 Mark Kettenis <kettenis@openbsd.org>
  *
@@ -74,7 +74,6 @@ struct qciic_crs {
 	uint16_t gpio_int_pin;
 	uint16_t gpio_int_flags;
 	struct aml_node *node;
-	int skip;
 };
 
 int	qciic_acpi_match(struct device *, void *, void *);
@@ -374,11 +373,6 @@ qciic_acpi_parse_crs(int crsidx, union acpi_resource *crs, void *arg)
 	uint16_t pin;
 
 	switch (AML_CRSTYPE(crs)) {
-	case LR_MEM32FIXED:
-		/* An MMIO address means this is not an I2C device. */
-		sc_crs->skip = 1;
-		break;
-
 	case LR_SERBUS:
 		if (crs->lr_serbus.type == LR_SERBUS_I2C) {
 			sc_crs->i2c_addr = crs->lr_i2cbus._adr;
@@ -446,7 +440,7 @@ qciic_acpi_found_hid(struct aml_node *node, void *arg)
 	aml_freevalue(&res);
 
 	/* Skip if not using this bus. */
-	if (crs.skip || crs.i2c_bus != sc->sc_node)
+	if (crs.i2c_bus != sc->sc_node)
 		return 0;
 
 	acpi_attach_deps(acpi_softc, node->parent);

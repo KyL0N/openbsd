@@ -1,4 +1,4 @@
-/* $OpenBSD: wsemul_vt100.c,v 1.48 2024/11/05 08:12:08 miod Exp $ */
+/* $OpenBSD: wsemul_vt100.c,v 1.47 2023/08/02 19:20:19 miod Exp $ */
 /* $NetBSD: wsemul_vt100.c,v 1.13 2000/04/28 21:56:16 mycroft Exp $ */
 
 /*
@@ -80,12 +80,14 @@ void	wsemul_vt100_init(struct wsemul_vt100_emuldata *,
 	    const struct wsscreen_descr *, void *, int, int, uint32_t);
 int	wsemul_vt100_jump_scroll(struct wsemul_vt100_emuldata *,
 	    const u_char *, u_int, int);
+int	wsemul_vt100_output_normal(struct wsemul_vt100_emuldata *,
+	    struct wsemul_inputstate *, int);
 int	wsemul_vt100_output_c0c1(struct wsemul_vt100_emuldata *,
 	    struct wsemul_inputstate *, int);
 int	wsemul_vt100_nextline(struct wsemul_vt100_emuldata *);
 
 typedef int vt100_handler(struct wsemul_vt100_emuldata *, struct
-	    wsemul_inputstate *, int);
+	    wsemul_inputstate *);
 vt100_handler
 	wsemul_vt100_output_esc,
 	wsemul_vt100_output_csi,
@@ -310,11 +312,9 @@ wsemul_vt100_reset(struct wsemul_vt100_emuldata *edp)
 	edp->instate.inchar = 0;
 	edp->instate.lbound = 0;
 	edp->instate.mbleft = 0;
-	edp->instate.last_output = 0;
 	edp->kstate.inchar = 0;
 	edp->kstate.lbound = 0;
 	edp->kstate.mbleft = 0;
-	edp->kstate.last_output = 0;
 }
 
 /*
@@ -347,13 +347,21 @@ wsemul_vt100_nextline(struct wsemul_vt100_emuldata *edp)
 
 int
 wsemul_vt100_output_normal(struct wsemul_vt100_emuldata *edp,
-    struct wsemul_inputstate *instate, int kernel, int count)
+    struct wsemul_inputstate *instate, int kernel)
 {
 	u_int *ct, dc;
 	u_char c;
 	int oldsschartab = edp->sschartab;
-	int m;
 	int rc = 0;
+
+	if ((edp->flags & (VTFL_LASTCHAR | VTFL_DECAWM)) ==
+	    (VTFL_LASTCHAR | VTFL_DECAWM)) {
+		rc = wsemul_vt100_nextline(edp);
+		if (rc != 0)
+			return rc;
+		edp->ccol = 0;
+		edp->flags &= ~VTFL_LASTCHAR;
+	}
 
 #ifdef HAVE_UTF8_SUPPORT
 	if (edp->flags & VTFL_UTF8) {
@@ -375,47 +383,37 @@ wsemul_vt100_output_normal(struct wsemul_vt100_emuldata *edp,
 		dc = ct ? ct[c] : c;
 	}
 
-	for (m = 0; m < count; m++) {
-		if ((edp->flags & (VTFL_LASTCHAR | VTFL_DECAWM)) ==
-		    (VTFL_LASTCHAR | VTFL_DECAWM)) {
-			rc = wsemul_vt100_nextline(edp);
-			if (rc != 0)
-				return rc;
-			edp->ccol = 0;
-			edp->flags &= ~VTFL_LASTCHAR;
+	if ((edp->flags & VTFL_INSERTMODE) && COLS_LEFT) {
+		WSEMULOP(rc, edp, &edp->abortstate, copycols,
+		    COPYCOLS(edp->ccol, edp->ccol + 1, COLS_LEFT));
+		if (rc != 0) {
+			/* undo potential sschartab update */
+			edp->sschartab = oldsschartab;
+
+			return rc;
 		}
-
-		if ((edp->flags & VTFL_INSERTMODE) && COLS_LEFT) {
-			WSEMULOP(rc, edp, &edp->abortstate, copycols,
-			    COPYCOLS(edp->ccol, edp->ccol + 1, COLS_LEFT));
-			if (rc != 0)
-				break;
-		}
-
-#ifdef HAVE_DOUBLE_WIDTH_HEIGHT
-		WSEMULOP(rc, edp, &edp->abortstate, putchar,
-		    (edp->emulcookie, edp->crow, edp->ccol << edp->dw, dc,
-		     kernel ? edp->kernattr : edp->curattr));
-#else
-		WSEMULOP(rc, edp, &edp->abortstate, putchar,
-		    (edp->emulcookie, edp->crow, edp->ccol, dc,
-		     kernel ? edp->kernattr : edp->curattr));
-#endif
-		if (rc != 0)
-			break;
-
-		if (COLS_LEFT)
-			edp->ccol++;
-		else
-			edp->flags |= VTFL_LASTCHAR;
 	}
 
+#ifdef HAVE_DOUBLE_WIDTH_HEIGHT
+	WSEMULOP(rc, edp, &edp->abortstate, putchar,
+	    (edp->emulcookie, edp->crow, edp->ccol << edp->dw, dc,
+	     kernel ? edp->kernattr : edp->curattr));
+#else
+	WSEMULOP(rc, edp, &edp->abortstate, putchar,
+	    (edp->emulcookie, edp->crow, edp->ccol, dc,
+	     kernel ? edp->kernattr : edp->curattr));
+#endif
 	if (rc != 0) {
 		/* undo potential sschartab update */
 		edp->sschartab = oldsschartab;
 
 		return rc;
 	}
+
+	if (COLS_LEFT)
+		edp->ccol++;
+	else
+		edp->flags |= VTFL_LASTCHAR;
 
 	return 0;
 }
@@ -505,7 +503,7 @@ wsemul_vt100_output_c0c1(struct wsemul_vt100_emuldata *edp,
 
 int
 wsemul_vt100_output_esc(struct wsemul_vt100_emuldata *edp,
-    struct wsemul_inputstate *instate, int kernel)
+    struct wsemul_inputstate *instate)
 {
 	u_int newstate = VT100_EMUL_STATE_NORMAL;
 	int rc = 0;
@@ -658,7 +656,7 @@ wsemul_vt100_output_esc(struct wsemul_vt100_emuldata *edp,
 
 int
 wsemul_vt100_output_scs94(struct wsemul_vt100_emuldata *edp,
-    struct wsemul_inputstate *instate, int kernel)
+    struct wsemul_inputstate *instate)
 {
 	u_int newstate = VT100_EMUL_STATE_NORMAL;
 
@@ -701,7 +699,7 @@ wsemul_vt100_output_scs94(struct wsemul_vt100_emuldata *edp,
 
 int
 wsemul_vt100_output_scs94_percent(struct wsemul_vt100_emuldata *edp,
-    struct wsemul_inputstate *instate, int kernel)
+    struct wsemul_inputstate *instate)
 {
 	switch (instate->inchar) {
 	case '5': /* DEC supplemental graphic */
@@ -723,7 +721,7 @@ wsemul_vt100_output_scs94_percent(struct wsemul_vt100_emuldata *edp,
 
 int
 wsemul_vt100_output_scs96(struct wsemul_vt100_emuldata *edp,
-    struct wsemul_inputstate *instate, int kernel)
+    struct wsemul_inputstate *instate)
 {
 	u_int newstate = VT100_EMUL_STATE_NORMAL;
 	int nrc;
@@ -783,7 +781,7 @@ setnrc:
 
 int
 wsemul_vt100_output_scs96_percent(struct wsemul_vt100_emuldata *edp,
-    struct wsemul_inputstate *instate, int kernel)
+    struct wsemul_inputstate *instate)
 {
 	switch (instate->inchar) {
 	case '6': /* portuguese */
@@ -804,7 +802,7 @@ wsemul_vt100_output_scs96_percent(struct wsemul_vt100_emuldata *edp,
 
 int
 wsemul_vt100_output_esc_spc(struct wsemul_vt100_emuldata *edp,
-    struct wsemul_inputstate *instate, int kernel)
+    struct wsemul_inputstate *instate)
 {
 	switch (instate->inchar) {
 	case 'F': /* 7-bit controls */
@@ -826,7 +824,7 @@ wsemul_vt100_output_esc_spc(struct wsemul_vt100_emuldata *edp,
 
 int
 wsemul_vt100_output_string(struct wsemul_vt100_emuldata *edp,
-    struct wsemul_inputstate *instate, int kernel)
+    struct wsemul_inputstate *instate)
 {
 	if (edp->dcsarg && edp->dcstype && edp->dcspos < DCS_MAXLEN) {
 		if (instate->inchar & ~0xff) {
@@ -843,7 +841,7 @@ wsemul_vt100_output_string(struct wsemul_vt100_emuldata *edp,
 
 int
 wsemul_vt100_output_string_esc(struct wsemul_vt100_emuldata *edp,
-    struct wsemul_inputstate *instate, int kernel)
+    struct wsemul_inputstate *instate)
 {
 	if (instate->inchar == '\\') { /* ST complete */
 		wsemul_vt100_handle_dcs(edp);
@@ -856,7 +854,7 @@ wsemul_vt100_output_string_esc(struct wsemul_vt100_emuldata *edp,
 
 int
 wsemul_vt100_output_dcs(struct wsemul_vt100_emuldata *edp,
-    struct wsemul_inputstate *instate, int kernel)
+    struct wsemul_inputstate *instate)
 {
 	u_int newstate = VT100_EMUL_STATE_DCS;
 
@@ -904,7 +902,7 @@ wsemul_vt100_output_dcs(struct wsemul_vt100_emuldata *edp,
 
 int
 wsemul_vt100_output_dcs_dollar(struct wsemul_vt100_emuldata *edp,
-    struct wsemul_inputstate *instate, int kernel)
+    struct wsemul_inputstate *instate)
 {
 	switch (instate->inchar) {
 	case 'p': /* DECRSTS terminal state restore */
@@ -947,7 +945,7 @@ wsemul_vt100_output_dcs_dollar(struct wsemul_vt100_emuldata *edp,
 
 int
 wsemul_vt100_output_esc_percent(struct wsemul_vt100_emuldata *edp,
-    struct wsemul_inputstate *instate, int kernel)
+    struct wsemul_inputstate *instate)
 {
 	switch (instate->inchar) {
 #ifdef HAVE_UTF8_SUPPORT
@@ -971,7 +969,7 @@ wsemul_vt100_output_esc_percent(struct wsemul_vt100_emuldata *edp,
 
 int
 wsemul_vt100_output_esc_hash(struct wsemul_vt100_emuldata *edp,
-    struct wsemul_inputstate *instate, int kernel)
+    struct wsemul_inputstate *instate)
 {
 	int rc = 0;
 
@@ -1051,7 +1049,7 @@ wsemul_vt100_output_esc_hash(struct wsemul_vt100_emuldata *edp,
 
 int
 wsemul_vt100_output_csi(struct wsemul_vt100_emuldata *edp,
-    struct wsemul_inputstate *instate, int kernel)
+    struct wsemul_inputstate *instate)
 {
 	u_int newstate = VT100_EMUL_STATE_CSI;
 	int oargs;
@@ -1084,7 +1082,7 @@ wsemul_vt100_output_csi(struct wsemul_vt100_emuldata *edp,
 		oargs = edp->nargs;
 		if (edp->nargs < VT100_EMUL_NARGS)
 			edp->nargs++;
-		rc = wsemul_vt100_handle_csi(edp, instate, kernel);
+		rc = wsemul_vt100_handle_csi(edp, instate);
 		if (rc != 0) {
 			/* undo nargs progress */
 			edp->nargs = oargs;
@@ -1217,11 +1215,9 @@ wsemul_vt100_output(void *cookie, const u_char *data, u_int count, int kernel)
  		}
 
 		if (edp->state == VT100_EMUL_STATE_NORMAL || kernel) {
-			rc =
-			    wsemul_vt100_output_normal(edp, instate, kernel, 1);
+			rc = wsemul_vt100_output_normal(edp, instate, kernel);
 			if (rc != 0)
 				break;
-			instate->last_output = instate->inchar;
 			processed += prev_count - count;
 			continue;
 		}
@@ -1229,7 +1225,7 @@ wsemul_vt100_output(void *cookie, const u_char *data, u_int count, int kernel)
 		if (edp->state > nitems(vt100_output))
 			panic("wsemul_vt100: invalid state %d", edp->state);
 #endif
-		rc = vt100_output[edp->state - 1](edp, instate, kernel);
+		rc = vt100_output[edp->state - 1](edp, instate);
 		if (rc != 0)
 			break;
 		processed += prev_count - count;

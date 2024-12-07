@@ -1,4 +1,4 @@
-/*	$OpenBSD: gen.c,v 1.16 2024/11/09 18:03:44 op Exp $	*/
+/*	$OpenBSD: gen.c,v 1.15 2015/11/19 23:28:03 tedu Exp $	*/
 
 /* gen - actual generation (writing) of flex scanners */
 
@@ -85,7 +85,7 @@ get_state_decl(void)
 /* Indent to the current level. */
 
 void 
-do_indent(void)
+do_indent()
 {
 	int i = indent_level * 8;
 
@@ -129,7 +129,7 @@ mkeoltbl(void)
 
 /* Generate the table for possible eol matches. */
 static void 
-geneoltbl(void)
+geneoltbl()
 {
 	int i;
 
@@ -154,7 +154,7 @@ geneoltbl(void)
 /* Generate the code to keep backing-up information. */
 
 void 
-gen_backing_up(void)
+gen_backing_up()
 {
 	if (reject || num_backing_up == 0)
 		return;
@@ -176,7 +176,7 @@ gen_backing_up(void)
 /* Generate the code to perform the backing up. */
 
 void 
-gen_bu_action(void)
+gen_bu_action()
 {
 	if (reject || num_backing_up == 0)
 		return;
@@ -342,7 +342,7 @@ mkssltbl(void)
 /* genctbl - generates full speed compressed transition table */
 
 void 
-genctbl(void)
+genctbl()
 {
 	int i;
 	int end_of_buffer_action = num_rules + 1;
@@ -445,7 +445,7 @@ genctbl(void)
 
 /* mkecstbl - Make equivalence-class tables.  */
 
-static struct yytbl_data *
+struct yytbl_data *
 mkecstbl(void)
 {
 	int i;
@@ -476,7 +476,7 @@ mkecstbl(void)
 /* Generate equivalence-class tables. */
 
 void 
-genecs(void)
+genecs()
 {
 	int i, j;
 	int numrows;
@@ -512,7 +512,7 @@ genecs(void)
 /* Generate the code to find the action number. */
 
 void 
-gen_find_action(void)
+gen_find_action()
 {
 	if (fullspd)
 		indent_puts("yy_act = yy_current_state[-1].yy_nxt;");
@@ -690,7 +690,7 @@ mkftbl(void)
 /* genftbl - generate full transition table */
 
 void 
-genftbl(void)
+genftbl()
 {
 	int i;
 	int end_of_buffer_action = num_rules + 1;
@@ -724,8 +724,9 @@ genftbl(void)
 
 /* Generate the code to find the next compressed-table state. */
 
-void
-gen_next_compressed_state(char *char_map)
+void 
+gen_next_compressed_state(char_map)
+	char *char_map;
 {
 	indent_put2s("YY_CHAR yy_c = %s;", char_map);
 
@@ -770,7 +771,7 @@ gen_next_compressed_state(char *char_map)
 /* Generate the code to find the next match. */
 
 void 
-gen_next_match(void)
+gen_next_match()
 {
 	/*
 	 * NOTE - changes in here should be reflected in gen_next_state() and
@@ -872,7 +873,8 @@ gen_next_match(void)
 /* Generate the code to find the next state. */
 
 void 
-gen_next_state(int worry_about_NULs)
+gen_next_state(worry_about_NULs)
+	int worry_about_NULs;
 {				/* NOTE - changes in here should be reflected
 				 * in gen_next_match() */
 	char char_map[256];
@@ -938,7 +940,7 @@ gen_next_state(int worry_about_NULs)
 /* Generate the code to make a NUL transition. */
 
 void 
-gen_NUL_trans(void)
+gen_NUL_trans()
 {				/* NOTE - changes in here should be reflected
 				 * in gen_next_match() */
 	/*
@@ -1023,7 +1025,7 @@ gen_NUL_trans(void)
 /* Generate the code to find the start state. */
 
 void 
-gen_start_state(void)
+gen_start_state()
 {
 	if (fullspd) {
 		if (bol_needed) {
@@ -1054,7 +1056,7 @@ gen_start_state(void)
 /* gentabs - generate data statements for the transition tables */
 
 void 
-gentabs(void)
+gentabs()
 {
 	int i, j, k, *accset, nacc, *acc_array, total_states;
 	int end_of_buffer_action = num_rules + 1;
@@ -1473,7 +1475,8 @@ gentabs(void)
  */
 
 void 
-indent_put2s(const char *fmt, const char *arg)
+indent_put2s(fmt, arg)
+	const char *fmt, *arg;
 {
 	do_indent();
 	out_str(fmt, arg);
@@ -1486,7 +1489,8 @@ indent_put2s(const char *fmt, const char *arg)
  */
 
 void 
-indent_puts(const char *str)
+indent_puts(str)
+	const char *str;
 {
 	do_indent();
 	outn(str);
@@ -1497,7 +1501,7 @@ indent_puts(const char *str)
  */
 
 void 
-make_tables(void)
+make_tables()
 {
 	int i;
 	int did_eof_rule = false;

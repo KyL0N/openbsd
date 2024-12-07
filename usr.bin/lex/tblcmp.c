@@ -1,4 +1,4 @@
-/*	$OpenBSD: tblcmp.c,v 1.12 2024/11/09 18:03:44 op Exp $	*/
+/*	$OpenBSD: tblcmp.c,v 1.11 2022/12/26 19:16:01 jmc Exp $	*/
 
 /* tblcmp - table compression routines */
 
@@ -81,7 +81,8 @@ int tbldiff PROTO((int[], int, int[]));
  */
 
 void 
-bldtbl(int state[], int statenum, int totaltrans, int comstate, int comfreq)
+bldtbl(state, statenum, totaltrans, comstate, comfreq)
+	int state[], statenum, totaltrans, comstate, comfreq;
 {
 	int extptr, extrct[2][CSIZE + 1];
 	int mindiff, minprot, i, d;
@@ -230,7 +231,7 @@ bldtbl(int state[], int statenum, int totaltrans, int comstate, int comfreq)
  */
 
 void 
-cmptmps(void)
+cmptmps()
 {
 	int tmpstorage[CSIZE + 1];
 	int *tmp = tmpstorage, i, j;
@@ -298,7 +299,7 @@ cmptmps(void)
 /* expand_nxt_chk - expand the next check arrays */
 
 void 
-expand_nxt_chk(void)
+expand_nxt_chk()
 {
 	int old_max = current_max_xpairs;
 
@@ -333,7 +334,8 @@ expand_nxt_chk(void)
  */
 
 int 
-find_table_space(int *state, int numtrans)
+find_table_space(state, numtrans)
+	int *state, numtrans;
 {
 	/*
 	 * Firstfree is the position of the first possible occurrence of two
@@ -433,7 +435,7 @@ find_table_space(int *state, int numtrans)
  * all "chk" entries to be zero.
  */
 void 
-inittbl(void)
+inittbl()
 {
 	int i;
 
@@ -465,7 +467,7 @@ inittbl(void)
 /* mkdeftbl - make the default, "jam" table entries */
 
 void 
-mkdeftbl(void)
+mkdeftbl()
 {
 	int i;
 
@@ -516,7 +518,9 @@ mkdeftbl(void)
  */
 
 void 
-mkentry(int *state, int numchars, int statenum, int deflink, int totaltrans)
+mkentry(state, numchars, statenum, deflink, totaltrans)
+	int *state;
+	int numchars, statenum, deflink, totaltrans;
 {
 	int minec, maxec, i, baseaddr;
 	int tblbase, tbllast;
@@ -632,7 +636,8 @@ mkentry(int *state, int numchars, int statenum, int deflink, int totaltrans)
  */
 
 void 
-mk1tbl(int state, int sym, int onenxt, int onedef)
+mk1tbl(state, sym, onenxt, onedef)
+	int state, sym, onenxt, onedef;
 {
 	if (firstfree < sym)
 		firstfree = sym;
@@ -658,7 +663,8 @@ mk1tbl(int state, int sym, int onenxt, int onedef)
 /* mkprot - create new proto entry */
 
 void 
-mkprot(int state[], int statenum, int comstate)
+mkprot(state, statenum, comstate)
+	int state[], statenum, comstate;
 {
 	int i, slot, tblbase;
 
@@ -695,7 +701,8 @@ mkprot(int state[], int statenum, int comstate)
  */
 
 void 
-mktemplate(int state[], int statenum, int comstate)
+mktemplate(state, statenum, comstate)
+	int state[], statenum, comstate;
 {
 	int i, numdiff, tmpbase, tmp[CSIZE + 1];
 	u_char transset[CSIZE + 1];
@@ -748,7 +755,8 @@ mktemplate(int state[], int statenum, int comstate)
 /* mv2front - move proto queue element to front of queue */
 
 void 
-mv2front(int qelm)
+mv2front(qelm)
+	int qelm;
 {
 	if (firstprot != qelm) {
 		if (qelm == lastprot)
@@ -775,7 +783,8 @@ mv2front(int qelm)
  */
 
 void 
-place_state(int *state, int statenum, int transnum)
+place_state(state, statenum, transnum)
+	int *state, statenum, transnum;
 {
 	int i;
 	int *state_ptr;
@@ -819,7 +828,8 @@ place_state(int *state, int statenum, int transnum)
  */
 
 void 
-stack1(int statenum, int sym, int nextstate, int deflink)
+stack1(statenum, sym, nextstate, deflink)
+	int statenum, sym, nextstate, deflink;
 {
 	if (onesp >= ONE_STACK_SIZE - 1)
 		mk1tbl(statenum, sym, nextstate, deflink);
@@ -849,7 +859,8 @@ stack1(int statenum, int sym, int nextstate, int deflink)
  */
 
 int 
-tbldiff(int state[], int pr, int ext[])
+tbldiff(state, pr, ext)
+	int state[], pr, ext[];
 {
 	int i, *sp = state, *ep = ext, *protp;
 	int numdiff = 0;

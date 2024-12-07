@@ -1,4 +1,4 @@
-/*	$OpenBSD: dvmrpd.c,v 1.34 2024/11/21 13:38:14 claudio Exp $ */
+/*	$OpenBSD: dvmrpd.c,v 1.27 2021/01/19 12:29:46 claudio Exp $ */
 
 /*
  * Copyright (c) 2005 Claudio Jeker <claudio@openbsd.org>
@@ -234,9 +234,8 @@ main(int argc, char *argv[])
 	if ((iev_dvmrpe = malloc(sizeof(struct imsgev))) == NULL ||
 	    (iev_rde = malloc(sizeof(struct imsgev))) == NULL)
 		fatal(NULL);
-	if (imsgbuf_init(&iev_dvmrpe->ibuf, pipe_parent2dvmrpe[0]) == -1 ||
-	    imsgbuf_init(&iev_rde->ibuf, pipe_parent2rde[0]) == -1)
-		fatal(NULL);
+	imsg_init(&iev_dvmrpe->ibuf, pipe_parent2dvmrpe[0]);
+	imsg_init(&iev_rde->ibuf, pipe_parent2rde[0]);
 	iev_dvmrpe->handler =  main_dispatch_dvmrpe;
 	iev_rde->handler = main_dispatch_rde;
 
@@ -275,9 +274,9 @@ dvmrpd_shutdown(void)
 	int		 status;
 
 	/* close pipes */
-	imsgbuf_clear(&iev_dvmrpe->ibuf);
+	msgbuf_clear(&iev_dvmrpe->ibuf.w);
 	close(iev_dvmrpe->ibuf.fd);
-	imsgbuf_clear(&iev_rde->ibuf);
+	msgbuf_clear(&iev_rde->ibuf.w);
 	close(iev_rde->ibuf.fd);
 
 	control_cleanup();
@@ -318,18 +317,16 @@ main_dispatch_dvmrpe(int fd, short event, void *bula)
 	int		 shut = 0, verbose;
 
 	if (event & EV_READ) {
-		if ((n = imsgbuf_read(ibuf)) == -1)
-			fatal("imsgbuf_read error");
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+			fatal("imsg_read error");
 		if (n == 0)	/* connection closed */
 			shut = 1;
 	}
 	if (event & EV_WRITE) {
-		if (imsgbuf_write(ibuf) == -1) {
-			if (errno == EPIPE)	/* connection closed */
-				shut = 1;
-			else
-				fatal("imsgbuf_write");
-		}
+		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
+			fatal("msgbuf_write");
+		if (n == 0)	/* connection closed */
+			shut = 1;
 	}
 
 	for (;;) {
@@ -382,18 +379,16 @@ main_dispatch_rde(int fd, short event, void *bula)
 	int		 shut = 0;
 
 	if (event & EV_READ) {
-		if ((n = imsgbuf_read(ibuf)) == -1)
-			fatal("imsgbuf_read error");
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+			fatal("imsg_read error");
 		if (n == 0)	/* connection closed */
 			shut = 1;
 	}
 	if (event & EV_WRITE) {
-		if (imsgbuf_write(ibuf) == -1) {
-			if (errno == EPIPE)	/* connection closed */
-				shut = 1;
-			else
-				fatal("imsgbuf_write");
-		}
+		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
+			fatal("msgbuf_write");
+		if (n == 0)	/* connection closed */
+			shut = 1;
 	}
 
 	for (;;) {
@@ -452,7 +447,7 @@ void
 imsg_event_add(struct imsgev *iev)
 {
 	iev->events = EV_READ;
-	if (imsgbuf_queuelen(&iev->ibuf) > 0)
+	if (iev->ibuf.w.queued)
 		iev->events |= EV_WRITE;
 
 	event_del(&iev->ev);

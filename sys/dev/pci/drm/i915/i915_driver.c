@@ -2208,7 +2208,7 @@ const struct cfattach inteldrm_ca = {
 };
 
 struct cfdriver inteldrm_cd = {
-	NULL, "inteldrm", DV_DULL
+	0, "inteldrm", DV_DULL
 };
 
 int	inteldrm_intr(void *);

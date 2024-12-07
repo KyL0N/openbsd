@@ -1,4 +1,4 @@
-/*	$OpenBSD: stfpinctrl.c,v 1.4 2024/10/17 01:57:18 jsg Exp $	*/
+/*	$OpenBSD: stfpinctrl.c,v 1.3 2023/07/05 11:07:37 kettenis Exp $	*/
 /*
  * Copyright (c) 2022 Mark Kettenis <kettenis@openbsd.org>
  *
@@ -18,7 +18,10 @@
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/device.h>
+#include <sys/malloc.h>
+#include <sys/evcount.h>
 
+#include <machine/intr.h>
 #include <machine/bus.h>
 #include <machine/fdt.h>
 

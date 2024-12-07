@@ -1,4 +1,4 @@
-.\"	$OpenBSD: rpki-client.8,v 1.115 2024/12/04 16:17:31 job Exp $
+.\"	$OpenBSD: rpki-client.8,v 1.111 2024/09/10 18:37:42 tb Exp $
 .\"
 .\" Copyright (c) 2019 Kristaps Dzonsons <kristaps@bsd.lv>
 .\"
@@ -14,7 +14,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: December 4 2024 $
+.Dd $Mdocdate: September 10 2024 $
 .Dt RPKI-CLIENT 8
 .Os
 .Sh NAME
@@ -22,7 +22,7 @@
 .Nd RPKI validator to support BGP routing security
 .Sh SYNOPSIS
 .Nm
-.Op Fl 0ABcjmnoRVvx
+.Op Fl ABcjmnoRVvx
 .Op Fl b Ar sourceaddr
 .Op Fl d Ar cachedir
 .Op Fl e Ar rsync_prog
@@ -63,10 +63,6 @@ in various formats.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
-.It Fl 0
-Include hazardous AS0 TALs in the output files.
-AS0 TALs are not recommended for automatic filtering of BGP routes.
-The default is not to include them.
 .It Fl A
 Exclude the ASPA-set from the output files that support it (JSON and
 OpenBGPD).
@@ -336,7 +332,7 @@ agreement regarding ARIN service restrictions.
 .Re
 .Pp
 .Rs
-.%T Internet X.509 Public Key Infrastructure Certificate and CRL Profile
+.%T Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile
 .%R RFC 5280
 .Re
 .Pp
@@ -426,18 +422,9 @@ agreement regarding ARIN service restrictions.
 .Re
 .Pp
 .Rs
-.%T Same-Origin Policy for the RRDP
-.%R RFC 9674
-.Re
-.Pp
-.Rs
-.%T A Profile for RPKI Trust Anchor Keys
-.%R RFC 9691
-.Re
-.Pp
-.Rs
-.%T Detecting RRDP Session Desynchronization
-.%R RFC 9697
+.%T RPKI Signed Object for Trust Anchor Key
+.%U https://datatracker.ietf.org/doc/html/draft-ietf-sidrops-signed-tal
+.%D Oct, 2022
 .Re
 .Pp
 .Rs
@@ -453,6 +440,12 @@ agreement regarding ARIN service restrictions.
 .Re
 .Pp
 .Rs
+.%T Detecting RRDP Session Desynchronization
+.%U https://datatracker.ietf.org/doc/html/draft-ietf-sidrops-rrdp-desynchronization-00
+.%D April, 2024
+.Re
+.Pp
+.Rs
 .%T A profile for Signed Prefix Lists for Use in the RPKI
 .%U https://datatracker.ietf.org/doc/html/draft-ietf-sidrops-rpki-prefixlist-02
 .%D Jan, 2024
@@ -460,7 +453,7 @@ agreement regarding ARIN service restrictions.
 .Pp
 .Rs
 .%T Relying Party Handling of RPKI CRL Number Extensions
-.%U https://datatracker.ietf.org/doc/html/draft-ietf-sidrops-rpki-crl-numbers
+.%U https://datatracker.ietf.org/doc/html/draft-spaghetti-sidrops-rpki-crl-numbers
 .%D May, 2024
 .Re
 .Pp
@@ -471,8 +464,14 @@ agreement regarding ARIN service restrictions.
 .Re
 .Pp
 .Rs
+.%T Same-Origin Policy for RRDP
+.%U https://datatracker.ietf.org/doc/html/draft-ietf-sidrops-rrdp-same-origin
+.%D June, 2024
+.Re
+.Pp
+.Rs
 .%T Tiebreaking RPKI Trust Anchors
-.%U https://datatracker.ietf.org/doc/html/draft-ietf-sidrops-rpki-ta-tiebreaker
+.%U https://datatracker.ietf.org/doc/html/draft-spaghetti-sidrops-rpki-ta-tiebreaker
 .%D June, 2024
 .Re
 .Sh HISTORY

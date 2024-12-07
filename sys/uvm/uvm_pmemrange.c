@@ -1,4 +1,4 @@
-/*	$OpenBSD: uvm_pmemrange.c,v 1.76 2024/11/08 15:54:33 mpi Exp $	*/
+/*	$OpenBSD: uvm_pmemrange.c,v 1.67 2024/08/18 08:18:49 mpi Exp $	*/
 
 /*
  * Copyright (c) 2024 Martin Pieuchot <mpi@openbsd.org>
@@ -80,19 +80,6 @@ int	uvm_pmr_pg_to_memtype(struct vm_page *);
 #ifdef DDB
 void	uvm_pmr_print(void);
 #endif
-
-static inline int
-in_pagedaemon(int allowsyncer)
-{
-	if (curcpu()->ci_idepth > 0)
-		return 0;
-	if (curproc == uvm.pagedaemon_proc)
-		return 1;
-	/* XXX why is the syncer allowed to use the pagedaemon's reserve? */
-	if (allowsyncer && (curproc == syncerproc))
-		return 1;
-	return 0;
-}
 
 /*
  * Memory types. The page flags are used to derive what the current memory
@@ -835,6 +822,13 @@ uvm_pmr_extract_range(struct uvm_pmemrange *pmr, struct vm_page *pg,
 }
 
 /*
+ * Indicate to the page daemon that a nowait call failed and it should
+ * recover at least some memory in the most restricted region (assumed
+ * to be dma_constraint).
+ */
+extern volatile int uvm_nowait_failed;
+
+/*
  * Acquire a number of pages.
  *
  * count:	the number of pages returned
@@ -946,8 +940,9 @@ uvm_pmr_getpages(psize_t count, paddr_t start, paddr_t end, paddr_t align,
 	 */
 	desperate = 0;
 
+again:
 	uvm_lock_fpageq();
-retry:		/* Return point after sleeping. */
+
 	/*
 	 * check to see if we need to generate some free pages waking
 	 * the pagedaemon.
@@ -972,16 +967,16 @@ retry:		/* Return point after sleeping. */
 	}
 
 	if ((uvmexp.free <= (uvmexp.reserve_pagedaemon + count)) &&
-	    !in_pagedaemon(1)) {
-	    	uvm_unlock_fpageq();
+	    (curproc != uvm.pagedaemon_proc) && (curproc != syncerproc)) {
+		uvm_unlock_fpageq();
 		if (flags & UVM_PLA_WAITOK) {
 			uvm_wait("uvm_pmr_getpages");
-			uvm_lock_fpageq();
-			goto retry;
+			goto again;
 		}
 		return ENOMEM;
 	}
 
+retry:		/* Return point after sleeping. */
 	fcount = 0;
 	fnsegs = 0;
 
@@ -1181,12 +1176,9 @@ fail:
 		    flags & UVM_PLA_FAILOK) == 0)
 			goto retry;
 		KASSERT(flags & UVM_PLA_FAILOK);
-	} else if (!(flags & UVM_PLA_NOWAKE)) {
-		struct uvm_pmalloc *pma = &nowait_pma;
-
-		if (!(nowait_pma.pm_flags & UVM_PMA_LINKED)) {
-			nowait_pma.pm_flags = UVM_PMA_LINKED;
-			TAILQ_INSERT_TAIL(&uvm.pmr_control.allocs, pma, pmq);
+	} else {
+		if (!(flags & UVM_PLA_NOWAKE)) {
+			uvm_nowait_failed = 1;
 			wakeup(&uvm.pagedaemon);
 		}
 	}
@@ -2103,8 +2095,6 @@ uvm_wait_pla(paddr_t low, paddr_t high, paddr_t size, int failok)
 	struct uvm_pmalloc pma;
 	const char *wmsg = "pmrwait";
 
-	KASSERT(curcpu()->ci_idepth == 0);
-
 	if (curproc == uvm.pagedaemon_proc) {
 		/*
 		 * This is not that uncommon when the pagedaemon is trying
@@ -2114,7 +2104,7 @@ uvm_wait_pla(paddr_t low, paddr_t high, paddr_t size, int failok)
 		 * easily use up that reserve in a single scan iteration.
 		 */
 		uvm_unlock_fpageq();
-		if (bufbackoff(NULL, atop(size)) >= atop(size)) {
+		if (bufbackoff(NULL, atop(size)) == 0) {
 			uvm_lock_fpageq();
 			return 0;
 		}
@@ -2289,7 +2279,7 @@ uvm_pmr_cache_get(int flags)
 	return pg;
 }
 
-unsigned int
+void
 uvm_pmr_cache_free(struct uvm_pmr_cache_item *upci)
 {
 	struct pglist pgl;
@@ -2306,8 +2296,6 @@ uvm_pmr_cache_free(struct uvm_pmr_cache_item *upci)
 	atomic_sub_int(&uvmexp.percpucaches, upci->upci_npages);
 	upci->upci_npages = 0;
 	memset(upci->upci_pages, 0, sizeof(upci->upci_pages));
-
-	return i;
 }
 
 void
@@ -2349,19 +2337,16 @@ uvm_pmr_cache_put(struct vm_page *pg)
 	splx(s);
 }
 
-unsigned int
+void
 uvm_pmr_cache_drain(void)
 {
 	struct uvm_pmr_cache *upc = &curcpu()->ci_uvm;
-	unsigned int freed = 0;
 	int s;
 
 	s = splvm();
-	freed += uvm_pmr_cache_free(&upc->upc_magz[0]);
-	freed += uvm_pmr_cache_free(&upc->upc_magz[1]);
+	uvm_pmr_cache_free(&upc->upc_magz[0]);
+	uvm_pmr_cache_free(&upc->upc_magz[1]);
 	splx(s);
-
-	return freed;
 }
 
 #else /* !(MULTIPROCESSOR && __HAVE_UVM_PERCPU) */
@@ -2378,9 +2363,8 @@ uvm_pmr_cache_put(struct vm_page *pg)
 	uvm_pmr_freepages(pg, 1);
 }
 
-unsigned int
+void
 uvm_pmr_cache_drain(void)
 {
-	return 0;
 }
 #endif

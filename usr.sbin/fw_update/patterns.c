@@ -1,4 +1,4 @@
-/*	$OpenBSD: patterns.c,v 1.16 2024/10/30 00:04:46 bluhm Exp $	*/
+/*	$OpenBSD: patterns.c,v 1.14 2024/08/18 14:58:47 phessler Exp $	*/
 
 /*
  * Copyright (c) 1995, 1996 Christopher G. Demetriou.  All rights reserved.
@@ -94,10 +94,6 @@ main(void)
 	print_devices("amdgpu", amdgpu_devices, nitems(amdgpu_devices));
 	printf("%s\n", "amdgpu ^vga*vendor \"ATI\", unknown product"); 
 	printf("%s\n", "amdgpu ^vendor \"ATI\", unknown product*class display");
-	printf("%s\n", "amdsev ^\"AMD*Crypto\"");
-	printf("%s\n", "amdsev ^\"AMD*PSP\"");
-	printf("%s\n", "amdsev ccp");
-	printf("%s\n", "amdsev psp");
 	printf("%s\n", "apple-boot ^cpu0*Apple");
 	printf("%s\n", "arm64-qcom-dtb ^qcgpio0");
 	printf("%s\n", "athn");
@@ -119,7 +115,7 @@ main(void)
 	printf("%s\n", "otus");
 	printf("%s\n", "pgt");
 	printf("%s\n", "qcpas");
-	printf("%s\n", "qcpas ^ppb0*\"Qualcomm ^cpu0*\"Qualcomm");
+	printf("%s\n", "qcpas ^ppb0*\"Qualcomm SC8280XP PCIe\"");
 	printf("%s\n", "qwx");
 	printf("%s\n", "qwz");
 	printf("%s\n", "radeondrm");

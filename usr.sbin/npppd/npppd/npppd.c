@@ -1,4 +1,4 @@
-/*	$OpenBSD: npppd.c,v 1.57 2024/11/21 13:18:38 claudio Exp $ */
+/*	$OpenBSD: npppd.c,v 1.56 2024/08/02 12:43:55 yasuoka Exp $ */
 
 /*-
  * Copyright (c) 2005-2008,2009 Internet Initiative Japan Inc.
@@ -29,7 +29,7 @@
  * Next pppd(nppd). This file provides a npppd daemon process and operations
  * for npppd instance.
  * @author	Yasuoka Masahiko
- * $Id: npppd.c,v 1.57 2024/11/21 13:18:38 claudio Exp $
+ * $Id: npppd.c,v 1.56 2024/08/02 12:43:55 yasuoka Exp $
  */
 #include "version.h"
 #include <sys/param.h>	/* ALIGNED_POINTER */
@@ -2411,7 +2411,7 @@ void
 imsg_event_add(struct imsgev *iev)
 {
 	iev->events = EV_READ;
-	if (imsgbuf_queuelen(&iev->ibuf) > 0)
+	if (iev->ibuf.w.queued)
 		iev->events |= EV_WRITE;
 
 	event_del(&iev->ev);

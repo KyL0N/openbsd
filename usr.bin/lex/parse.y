@@ -1,4 +1,4 @@
-/*	$OpenBSD: parse.y,v 1.11 2024/11/09 18:03:44 op Exp $	*/
+/*	$OpenBSD: parse.y,v 1.10 2017/04/12 14:53:27 millert Exp $	*/
 
 /* parse.y - parser for flex input */
 
@@ -950,7 +950,7 @@ string		:  string CHAR
  *                    conditions
  */
 
-void build_eof_action(void)
+void build_eof_action()
 	{
 	int i;
 	char action_text[MAXLINE];
@@ -989,7 +989,8 @@ void build_eof_action(void)
 
 /* format_synerr - write out formatted syntax error */
 
-void format_synerr(const char *msg, const char arg[])
+void format_synerr( msg, arg )
+const char *msg, arg[];
 	{
 	char errmsg[MAXLINE];
 
@@ -1000,7 +1001,8 @@ void format_synerr(const char *msg, const char arg[])
 
 /* synerr - report a syntax error */
 
-void synerr(const char *str)
+void synerr( str )
+const char *str;
 	{
 	syntaxerror = true;
 	pinpoint_message( str );
@@ -1009,7 +1011,8 @@ void synerr(const char *str)
 
 /* format_warn - write out formatted warning */
 
-void format_warn(const char *msg, const char arg[])
+void format_warn( msg, arg )
+const char *msg, arg[];
 	{
 	char warn_msg[MAXLINE];
 
@@ -1020,7 +1023,8 @@ void format_warn(const char *msg, const char arg[])
 
 /* warn - report a warning, unless -w was given */
 
-void warn(const char *str)
+void warn( str )
+const char *str;
 	{
 	line_warning( str, linenum );
 	}
@@ -1029,7 +1033,8 @@ void warn(const char *str)
  *			     pinpointing its location
  */
 
-void format_pinpoint_message(const char *msg, const char arg[])
+void format_pinpoint_message( msg, arg )
+const char *msg, arg[];
 	{
 	char errmsg[MAXLINE];
 
@@ -1040,7 +1045,8 @@ void format_pinpoint_message(const char *msg, const char arg[])
 
 /* pinpoint_message - write out a message, pinpointing its location */
 
-void pinpoint_message(const char *str)
+void pinpoint_message( str )
+const char *str;
 	{
 	line_pinpoint( str, linenum );
 	}
@@ -1048,7 +1054,9 @@ void pinpoint_message(const char *str)
 
 /* line_warning - report a warning at a given line, unless -w was given */
 
-void line_warning(const char *str, int line)
+void line_warning( str, line )
+const char *str;
+int line;
 	{
 	char warning[MAXLINE];
 
@@ -1062,7 +1070,9 @@ void line_warning(const char *str, int line)
 
 /* line_pinpoint - write out a message, pinpointing it at the given line */
 
-void line_pinpoint(const char *str, int line)
+void line_pinpoint( str, line )
+const char *str;
+int line;
 	{
 	fprintf( stderr, "%s:%d: %s\n", infilename, line, str );
 	}
@@ -1072,6 +1082,7 @@ void line_pinpoint(const char *str, int line)
  *	     currently, messages are ignore
  */
 
-void yyerror(const char *msg)
+void yyerror( msg )
+const char *msg;
 	{
 	}

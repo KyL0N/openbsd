@@ -1,4 +1,4 @@
-/*	$OpenBSD: ntp_dns.c,v 1.36 2024/11/21 13:38:14 claudio Exp $ */
+/*	$OpenBSD: ntp_dns.c,v 1.28 2023/04/19 12:58:16 jsg Exp $ */
 
 /*
  * Copyright (c) 2003-2008 Henning Brauer <henning@openbsd.org>
@@ -94,8 +94,7 @@ ntp_dns(struct ntpd_conf *nconf, struct passwd *pw)
 
 	if ((ibuf_dns = malloc(sizeof(struct imsgbuf))) == NULL)
 		fatal(NULL);
-	if (imsgbuf_init(ibuf_dns, PARENT_SOCK_FILENO) == -1)
-		fatal(NULL);
+	imsg_init(ibuf_dns, PARENT_SOCK_FILENO);
 
 	if (pledge("stdio dns", NULL) == -1)
 		err(1, "pledge");
@@ -108,7 +107,7 @@ ntp_dns(struct ntpd_conf *nconf, struct passwd *pw)
 	while (quit_dns == 0) {
 		pfd[0].fd = ibuf_dns->fd;
 		pfd[0].events = POLLIN;
-		if (imsgbuf_queuelen(ibuf_dns) > 0)
+		if (ibuf_dns->w.queued)
 			pfd[0].events |= POLLOUT;
 
 		if ((nfds = poll(pfd, 1, INFTIM)) == -1)
@@ -118,7 +117,8 @@ ntp_dns(struct ntpd_conf *nconf, struct passwd *pw)
 			}
 
 		if (nfds > 0 && (pfd[0].revents & POLLOUT))
-			if (imsgbuf_write(ibuf_dns) == -1) {
+			if (msgbuf_write(&ibuf_dns->w) <= 0 &&
+			    errno != EAGAIN) {
 				log_warn("pipe write error (to ntp engine)");
 				quit_dns = 1;
 			}
@@ -130,7 +130,7 @@ ntp_dns(struct ntpd_conf *nconf, struct passwd *pw)
 		}
 	}
 
-	imsgbuf_clear(ibuf_dns);
+	msgbuf_clear(&ibuf_dns->w);
 	free(ibuf_dns);
 	exit(0);
 }
@@ -146,7 +146,7 @@ dns_dispatch_imsg(struct ntpd_conf *nconf)
 	const char		*str;
 	size_t			 len;
 
-	if (imsgbuf_read(ibuf_dns) != 1)
+	if (((n = imsg_read(ibuf_dns)) == -1 && errno != EAGAIN) || n == 0)
 		return (-1);
 
 	for (;;) {
@@ -237,29 +237,14 @@ probe_root_ns(void)
 void
 probe_root(void)
 {
-	int		i, n;
-	struct timespec	start, probe_start, probe_end;
-	struct timespec	duration;
+	int		n;
 
-	clock_gettime(CLOCK_MONOTONIC, &start);
-	for (i = 0; ; i++) {
-		clock_gettime(CLOCK_MONOTONIC, &probe_start);
+	n = probe_root_ns();	
+	if (n < 0) {
+		/* give programs like unwind a second chance */
+		sleep(1);
 		n = probe_root_ns();
-		clock_gettime(CLOCK_MONOTONIC, &probe_end);
-		if (n >= 0)
-			break;
-		timespecsub(&probe_end, &start, &duration);
-		if (duration.tv_sec > 5)
-			break;
-		timespecsub(&probe_end, &probe_start, &duration);
-		/* normally the probe takes 1s * nscount, but
-		   sleep a little if the probe returned quickly */
-		if (duration.tv_sec == 0)
-			sleep(1);
 	}
-	if (i > 0)
-		log_warnx("DNS root probe failed %d times (%s)", i,
-		    n >= 0 ? "eventually succeeded": "gave up");
 	if (imsg_compose(ibuf_dns, IMSG_PROBE_ROOT, 0, 0, -1, &n,
 	    sizeof(int)) == -1)
 		fatalx("probe_root");

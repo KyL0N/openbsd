@@ -1,4 +1,4 @@
-/*	$OpenBSD: ntpd.c,v 1.142 2024/11/21 13:38:14 claudio Exp $ */
+/*	$OpenBSD: ntpd.c,v 1.133 2024/05/21 05:00:48 jsg Exp $ */
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
@@ -274,8 +274,7 @@ main(int argc, char *argv[])
 
 	if ((ibuf = malloc(sizeof(struct imsgbuf))) == NULL)
 		fatal(NULL);
-	if (imsgbuf_init(ibuf, pipe_chld[0]) == -1)
-		fatal(NULL);
+	imsg_init(ibuf, pipe_chld[0]);
 
 	constraint_cnt = 0;
 
@@ -305,7 +304,7 @@ main(int argc, char *argv[])
 		memset(pfd, 0, sizeof(*pfd) * pfd_elms);
 		pfd[PFD_PIPE].fd = ibuf->fd;
 		pfd[PFD_PIPE].events = POLLIN;
-		if (imsgbuf_queuelen(ibuf) > 0)
+		if (ibuf->w.queued)
 			pfd[PFD_PIPE].events |= POLLOUT;
 
 		i = PFD_MAX;
@@ -334,7 +333,7 @@ main(int argc, char *argv[])
 		}
 
 		if (nfds > 0 && (pfd[PFD_PIPE].revents & POLLOUT))
-			if (imsgbuf_write(ibuf) == -1) {
+			if (msgbuf_write(&ibuf->w) <= 0 && errno != EAGAIN) {
 				log_warn("pipe write error (to child)");
 				quit = 1;
 			}
@@ -366,7 +365,7 @@ main(int argc, char *argv[])
 			fatal("wait");
 	} while (pid != -1 || (pid == -1 && errno == EINTR));
 
-	imsgbuf_clear(ibuf);
+	msgbuf_clear(&ibuf->w);
 	free(ibuf);
 	log_info("Terminating");
 	return (0);
@@ -394,7 +393,7 @@ dispatch_imsg(struct ntpd_conf *lconf, int argc, char **argv)
 	int			 n;
 	double			 d;
 
-	if (imsgbuf_read(ibuf) != 1)
+	if (((n = imsg_read(ibuf)) == -1 && errno != EAGAIN) || n == 0)
 		return (-1);
 
 	for (;;) {
@@ -671,8 +670,7 @@ ctl_main(int argc, char *argv[])
 
 	if ((ibuf_ctl = malloc(sizeof(struct imsgbuf))) == NULL)
 		err(1, NULL);
-	if (imsgbuf_init(ibuf_ctl, fd) == -1)
-		err(1, NULL);
+	imsg_init(ibuf_ctl, fd);
 
 	switch (action) {
 	case CTL_SHOW_STATUS:
@@ -696,15 +694,16 @@ ctl_main(int argc, char *argv[])
 		break; /* NOTREACHED */
 	}
 
-	if (imsgbuf_flush(ibuf_ctl) == -1)
-		err(1, "write error");
+	while (ibuf_ctl->w.queued)
+		if (msgbuf_write(&ibuf_ctl->w) <= 0 && errno != EAGAIN)
+			err(1, "ibuf_ctl: msgbuf_write error");
 
 	done = 0;
 	while (!done) {
-		if ((n = imsgbuf_read(ibuf_ctl)) == -1)
-			err(1, "read error");
+		if ((n = imsg_read(ibuf_ctl)) == -1 && errno != EAGAIN)
+			err(1, "ibuf_ctl: imsg_read error");
 		if (n == 0)
-			errx(1, "pipe closed");
+			errx(1, "ntpctl: pipe closed");
 
 		while (!done) {
 			if ((n = imsg_get(ibuf_ctl, &imsg)) == -1)

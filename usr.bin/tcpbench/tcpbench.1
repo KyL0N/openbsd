@@ -1,4 +1,4 @@
-.\" $OpenBSD: tcpbench.1,v 1.32 2024/11/06 06:40:16 jmc Exp $
+.\" $OpenBSD: tcpbench.1,v 1.30 2022/08/15 09:06:54 claudio Exp $
 .\"
 .\" Copyright (c) 2008 Damien Miller <djm@mindrot.org>
 .\"
@@ -14,7 +14,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd $Mdocdate: November 6 2024 $
+.Dd $Mdocdate: August 15 2022 $
 .Dt TCPBENCH 1
 .Os
 .Sh NAME
@@ -24,7 +24,7 @@
 .Nm
 .Fl l
 .Nm
-.Op Fl 46cDRUuv
+.Op Fl 46DRUuv
 .Op Fl B Ar buf
 .Op Fl b Ar sourceaddr
 .Op Fl k Ar kvars
@@ -32,21 +32,20 @@
 .Op Fl p Ar port
 .Op Fl r Ar interval
 .Op Fl S Ar space
-.Op Fl T Ar keyword
+.Op Fl T Ar toskeyword
 .Op Fl t Ar secs
 .Op Fl V Ar rtable
 .Ar hostname
 .Nm
 .Bk -words
 .Fl s
-.Op Fl 46cDUuv
+.Op Fl 46DUuv
 .Op Fl B Ar buf
-.Op Fl C Ar certfile Fl K Ar keyfile
 .Op Fl k Ar kvars
 .Op Fl p Ar port
 .Op Fl r Ar interval
 .Op Fl S Ar space
-.Op Fl T Ar keyword
+.Op Fl T Ar toskeyword
 .Op Fl V Ar rtable
 .Op Ar hostname
 .Ek
@@ -112,26 +111,8 @@ stream.
 .It Fl b Ar sourceaddr
 Specify the IP address to send the packets from,
 which is useful on machines with multiple interfaces.
-.It Fl C Ar certfile
-Load the public key part of the TLS peer certificate from
-.Ar certfile ,
-in PEM format.
-Requires
-.Fl s
-and
-.Fl c .
-.It Fl c
-Use TLS to connect or listen.
 .It Fl D
 Enable debugging on the socket.
-.It Fl K Ar keyfile
-Load the TLS private key from
-.Ar keyfile ,
-in PEM format.
-Requires
-.Fl s
-and
-.Fl c .
 .It Fl k Ar kvars
 Specify one or more kernel variables to monitor; multiple variables must be
 separated with commas.
@@ -162,9 +143,9 @@ connections.
 It defaults to using TCP if
 .Fl u
 is not specified.
-.It Fl T Ar keyword
+.It Fl T Ar toskeyword
 Change the IPv4 TOS or IPv6 TCLASS value.
-.Ar keyword
+.Ar toskeyword
 may be one of
 .Ar critical ,
 .Ar inetcontrol ,
@@ -177,22 +158,6 @@ or one of the DiffServ Code Points:
 .Ar af11 ... af43 ,
 .Ar cs0 ... cs7 ;
 or a number in either hex or decimal.
-.Pp
-For TLS options,
-.Ar keyword
-specifies a value in the form of a
-.Ar key Ns = Ns Ar value
-pair:
-.Cm ciphers ,
-which allows the supported TLS ciphers to be specified (see
-.Xr tls_config_set_ciphers 3
-for further details) or
-.Cm protocols ,
-which allows the supported TLS protocols to be specified (see
-.Xr tls_config_parse_protocols 3
-for further details).
-Specifying TLS options requires
-.Fl c .
 .It Fl t Ar secs
 Stop after
 .Ar secs

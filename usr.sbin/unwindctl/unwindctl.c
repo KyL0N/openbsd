@@ -1,4 +1,4 @@
-/*	$OpenBSD: unwindctl.c,v 1.34 2024/11/21 13:38:15 claudio Exp $	*/
+/*	$OpenBSD: unwindctl.c,v 1.29 2021/11/10 20:24:22 bket Exp $	*/
 
 /*
  * Copyright (c) 2005 Claudio Jeker <claudio@openbsd.org>
@@ -129,8 +129,7 @@ main(int argc, char *argv[])
 
 	if ((ibuf = malloc(sizeof(struct imsgbuf))) == NULL)
 		err(1, NULL);
-	if (imsgbuf_init(ibuf, ctl_sock) == -1)
-		err(1, NULL);
+	imsg_init(ibuf, ctl_sock);
 	done = 0;
 
 	/* Check for root-only actions */
@@ -178,12 +177,13 @@ main(int argc, char *argv[])
 		usage();
 	}
 
-	if (imsgbuf_flush(ibuf) == -1)
-		err(1, "write error");
+	while (ibuf->w.queued)
+		if (msgbuf_write(&ibuf->w) <= 0 && errno != EAGAIN)
+			err(1, "write error");
 
 	while (!done) {
-		if ((n = imsgbuf_read(ibuf)) == -1)
-			err(1, "read error");
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+			errx(1, "imsg_read error");
 		if (n == 0)
 			errx(1, "pipe closed");
 

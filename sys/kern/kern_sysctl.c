@@ -1,4 +1,4 @@
-/*	$OpenBSD: kern_sysctl.c,v 1.455 2024/11/18 08:42:53 mvs Exp $	*/
+/*	$OpenBSD: kern_sysctl.c,v 1.447 2024/09/24 12:37:11 bluhm Exp $	*/
 /*	$NetBSD: kern_sysctl.c,v 1.17 1996/05/20 17:49:05 mrg Exp $	*/
 
 /*-
@@ -122,11 +122,6 @@
 #include "ucom.h"
 #include "video.h"
 
-/*
- * Locks used to protect data:
- *	a	atomic
- */
-
 extern struct forkstat forkstat;
 extern struct nchstats nchstats;
 extern int fscale;
@@ -137,7 +132,7 @@ extern int audio_record_enable;
 extern int video_record_enable;
 extern int autoconf_serial;
 
-int allowkmem;		/* [a] */
+int allowkmem;
 
 int sysctl_securelevel(void *, size_t *, void *, size_t, struct proc *);
 int sysctl_diskinit(int, struct proc *);
@@ -262,7 +257,6 @@ sys_sysctl(struct proc *p, void *v, register_t *retval)
 		fn = net_sysctl;
 		break;
 	case CTL_FS:
-		dolock = 0;
 		fn = fs_sysctl;
 		break;
 	case CTL_VFS:
@@ -510,9 +504,6 @@ kern_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp,
 	}
 
 	switch (name[0]) {
-	case KERN_ALLOWKMEM:
-		return (sysctl_securelevel_int(oldp, oldlenp, newp, newlen,
-		    &allowkmem));
 	case KERN_OSTYPE:
 		return (sysctl_rdstring(oldp, oldlenp, newp, ostype));
 	case KERN_OSRELEASE:
@@ -573,8 +564,6 @@ kern_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp,
 			return (ENXIO);
 		return (sysctl_rdint(oldp, oldlenp, newp, mp->msg_bufs));
 	}
-	case KERN_TIMEOUT_STATS:
-		return (timeout_sysctl(oldp, oldlenp, newp, newlen));
 	case KERN_OSREV:
 	case KERN_MAXPROC:
 	case KERN_MAXFILES:
@@ -625,6 +614,9 @@ kern_sysctl_locked(int *name, u_int namelen, void *oldp, size_t *oldlenp,
 	switch (name[0]) {
 	case KERN_SECURELVL:
 		return (sysctl_securelevel(oldp, oldlenp, newp, newlen, p));
+	case KERN_ALLOWKMEM:
+		return (sysctl_securelevel_int(oldp, oldlenp, newp, newlen,
+		    &allowkmem));
 	case KERN_HOSTNAME:
 		error = sysctl_tstring(oldp, oldlenp, newp, newlen,
 		    hostname, sizeof(hostname));
@@ -744,6 +736,8 @@ kern_sysctl_locked(int *name, u_int namelen, void *oldp, size_t *oldlenp,
 	case KERN_PFSTATUS:
 		return (pf_sysctl(oldp, oldlenp, newp, newlen));
 #endif
+	case KERN_TIMEOUT_STATS:
+		return (timeout_sysctl(oldp, oldlenp, newp, newlen));
 	case KERN_UTC_OFFSET:
 		return (sysctl_utc_offset(oldp, oldlenp, newp, newlen));
 	default:
@@ -1173,7 +1167,7 @@ int
 sysctl_securelevel_int(void *oldp, size_t *oldlenp, void *newp, size_t newlen,
     int *valp)
 {
-	if ((int)atomic_load_int(&securelevel) > 0)
+	if (atomic_load_int(&securelevel) > 0)
 		return (sysctl_rdint(oldp, oldlenp, newp, *valp));
 	return (sysctl_int(oldp, oldlenp, newp, newlen, valp));
 }
@@ -1689,36 +1683,24 @@ sysctl_file(int *name, u_int namelen, char *where, size_t *sizep,
 			mtx_leave(&tcb6table.inpt_mtx);
 #endif
 			mtx_enter(&udbtable.inpt_mtx);
-			TAILQ_FOREACH(inp, &udbtable.inpt_queue, inp_queue) {
-				if (in_pcb_is_iterator(inp))
-					continue;
+			TAILQ_FOREACH(inp, &udbtable.inpt_queue, inp_queue)
 				FILLSO(inp->inp_socket);
-			}
 			mtx_leave(&udbtable.inpt_mtx);
 #ifdef INET6
 			mtx_enter(&udb6table.inpt_mtx);
-			TAILQ_FOREACH(inp, &udb6table.inpt_queue, inp_queue) {
-				if (in_pcb_is_iterator(inp))
-					continue;
+			TAILQ_FOREACH(inp, &udb6table.inpt_queue, inp_queue)
 				FILLSO(inp->inp_socket);
-			}
 			mtx_leave(&udb6table.inpt_mtx);
 #endif
 			mtx_enter(&rawcbtable.inpt_mtx);
-			TAILQ_FOREACH(inp, &rawcbtable.inpt_queue, inp_queue) {
-				if (in_pcb_is_iterator(inp))
-					continue;
+			TAILQ_FOREACH(inp, &rawcbtable.inpt_queue, inp_queue)
 				FILLSO(inp->inp_socket);
-			}
 			mtx_leave(&rawcbtable.inpt_mtx);
 #ifdef INET6
 			mtx_enter(&rawin6pcbtable.inpt_mtx);
 			TAILQ_FOREACH(inp, &rawin6pcbtable.inpt_queue,
-			    inp_queue) {
-				if (in_pcb_is_iterator(inp))
-					continue;
+			    inp_queue)
 				FILLSO(inp->inp_socket);
-			}
 			mtx_leave(&rawin6pcbtable.inpt_mtx);
 #endif
 			NET_UNLOCK();
@@ -2014,6 +1996,8 @@ fill_kproc(struct process *pr, struct kinfo_proc *ki, struct proc *p,
 	    show_pointers);
 
 	/* stuff that's too painful to generalize into the macros */
+	if (pr->ps_pptr)
+		ki->p_ppid = pr->ps_ppid;
 	if (s->s_leader)
 		ki->p_sid = s->s_leader->ps_pid;
 

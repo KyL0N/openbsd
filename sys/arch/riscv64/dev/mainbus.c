@@ -1,4 +1,4 @@
-/*	$OpenBSD: mainbus.c,v 1.13 2024/11/18 05:32:39 jsg Exp $ */
+/*	$OpenBSD: mainbus.c,v 1.11 2024/08/18 15:50:49 deraadt Exp $ */
 
 /*
  * Copyright (c) 2016 Patrick Wildt <patrick@blueri.se>
@@ -25,6 +25,9 @@
 #include <machine/fdt.h>
 #include <dev/ofw/openfirm.h>
 #include <dev/ofw/fdt.h>
+
+#include <machine/riscv64var.h>
+#include <riscv64/dev/mainbus.h>
 
 int mainbus_match(struct device *, void *, void *);
 void mainbus_attach(struct device *, struct device *, void *);

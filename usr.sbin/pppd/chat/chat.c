@@ -1,4 +1,4 @@
-/*	$OpenBSD: chat.c,v 1.39 2024/11/04 11:12:52 deraadt Exp $	*/
+/*	$OpenBSD: chat.c,v 1.38 2024/08/17 15:42:20 denis Exp $	*/
 
 /*
  *	Chat -- a program for automatic session establishment (i.e. dial
@@ -213,7 +213,6 @@ int main(int, char *[]);
 int
 main(int argc, char **argv)
 {
-    const char *errstr;
     int option;
 
     tzset();
@@ -246,9 +245,7 @@ main(int argc, char **argv)
 	    break;
 
 	case 't':
-	    timeout = strtonum(optarg, 0, 10000, &errstr);
-	    if (errstr)
-		fatal(2, "-t %s: %s\n", optarg, errstr);
+	    timeout = atoi(optarg);
 	    break;
 
 	case 'r':
@@ -952,8 +949,6 @@ char *character(int c)
  */
 void chat_send (char *s)
 {
-    const char *errstr;
-
     if (say_next) {
 	say_next = 0;
 	s = clean(s,0);
@@ -1081,11 +1076,8 @@ void chat_send (char *s)
 
     if (timeout_next) {
 	timeout_next = 0;
-	timeout = strtonum(s, -1, 10000, &errstr);
-	if (errstr) {
-	    logmsg("invalid timeout %s: %s\n", s, errstr);
-	    timeout = -1;
-	} 
+	timeout = atoi(s);
+	
 	if (timeout <= 0)
 	    timeout = DEFAULT_CHAT_TIMEOUT;
 

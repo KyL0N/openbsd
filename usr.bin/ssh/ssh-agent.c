@@ -1,4 +1,4 @@
-/* $OpenBSD: ssh-agent.c,v 1.309 2024/11/06 22:51:26 djm Exp $ */
+/* $OpenBSD: ssh-agent.c,v 1.307 2024/09/24 02:28:17 djm Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -81,9 +81,6 @@
 #ifndef DEFAULT_ALLOWED_PROVIDERS
 # define DEFAULT_ALLOWED_PROVIDERS "/usr/lib*/*,/usr/local/lib*/*"
 #endif
-#ifndef DEFAULT_WEBSAFE_ALLOWLIST
-# define DEFAULT_WEBSAFE_ALLOWLIST "ssh:*"
-#endif
 
 /* Maximum accepted message length */
 #define AGENT_MAX_LEN		(256*1024)
@@ -152,8 +149,7 @@ int max_fd = 0;
 pid_t parent_pid = -1;
 time_t parent_alive_interval = 0;
 
-static sig_atomic_t signalled_exit;
-static sig_atomic_t signalled_keydrop;
+sig_atomic_t signalled = 0;
 
 /* pid of process for which cleanup_socket is applicable */
 pid_t cleanup_pid = 0;
@@ -188,7 +184,6 @@ static int fingerprint_hash = SSH_FP_HASH_DEFAULT;
 
 /* Refuse signing of non-SSH messages for web-origin FIDO keys */
 static int restrict_websafe = 1;
-static char *websafe_allowlist;
 
 static void
 close_socket(SocketEntry *e)
@@ -916,8 +911,7 @@ process_sign_request2(SocketEntry *e)
 	}
 	if (sshkey_is_sk(id->key)) {
 		if (restrict_websafe &&
-		    match_pattern_list(id->key->sk_application,
-		    websafe_allowlist, 0) != 1 &&
+		    strncmp(id->key->sk_application, "ssh:", 4) != 0 &&
 		    !check_websafe_message_contents(key, data)) {
 			/* error already logged */
 			goto send;
@@ -1014,7 +1008,7 @@ process_remove_identity(SocketEntry *e)
 }
 
 static void
-remove_all_identities(void)
+process_remove_all_identities(SocketEntry *e)
 {
 	Identity *id;
 
@@ -1028,12 +1022,6 @@ remove_all_identities(void)
 
 	/* Mark that there are no identities. */
 	idtab->nentries = 0;
-}
-
-static void
-process_remove_all_identities(SocketEntry *e)
-{
-	remove_all_identities();
 
 	/* Send success. */
 	send_status(e, 1);
@@ -2163,13 +2151,7 @@ cleanup_exit(int i)
 static void
 cleanup_handler(int sig)
 {
-	signalled_exit = sig;
-}
-
-static void
-keydrop_handler(int sig)
-{
-	signalled_keydrop = sig;
+	signalled = sig;
 }
 
 static void
@@ -2204,7 +2186,6 @@ main(int ac, char **av)
 	int c_flag = 0, d_flag = 0, D_flag = 0, k_flag = 0, s_flag = 0;
 	int sock, ch, result, saved_errno;
 	char *shell, *format, *pidstr, *agentsocket = NULL;
-	const char *ccp;
 	struct rlimit rlim;
 	extern int optind;
 	extern char *optarg;
@@ -2252,12 +2233,7 @@ main(int ac, char **av)
 				restrict_websafe = 0;
 			else if (strcmp(optarg, "allow-remote-pkcs11") == 0)
 				remote_add_provider = 1;
-			else if ((ccp = strprefix(optarg,
-			    "websafe-allow=", 0)) != NULL) {
-				if (websafe_allowlist != NULL)
-					fatal("websafe-allow already set");
-				websafe_allowlist = xstrdup(ccp);
-			} else
+			else
 				fatal("Unknown -O option");
 			break;
 		case 'P':
@@ -2301,8 +2277,6 @@ main(int ac, char **av)
 
 	if (allowed_providers == NULL)
 		allowed_providers = xstrdup(DEFAULT_ALLOWED_PROVIDERS);
-	if (websafe_allowlist == NULL)
-		websafe_allowlist = xstrdup(DEFAULT_WEBSAFE_ALLOWLIST);
 
 	if (ac == 0 && !c_flag && !s_flag) {
 		shell = getenv("SHELL");
@@ -2453,28 +2427,20 @@ skip:
 	ssh_signal(SIGINT, (d_flag | D_flag) ? cleanup_handler : SIG_IGN);
 	ssh_signal(SIGHUP, cleanup_handler);
 	ssh_signal(SIGTERM, cleanup_handler);
-	ssh_signal(SIGUSR1, keydrop_handler);
 
 	sigemptyset(&nsigset);
 	sigaddset(&nsigset, SIGINT);
 	sigaddset(&nsigset, SIGHUP);
 	sigaddset(&nsigset, SIGTERM);
-	sigaddset(&nsigset, SIGUSR1);
 
 	if (pledge("stdio rpath cpath unix id proc exec", NULL) == -1)
 		fatal("%s: pledge: %s", __progname, strerror(errno));
 
 	while (1) {
 		sigprocmask(SIG_BLOCK, &nsigset, &osigset);
-		if (signalled_exit != 0) {
-			logit("exiting on signal %d", (int)signalled_exit);
+		if (signalled != 0) {
+			logit("exiting on signal %d", (int)signalled);
 			cleanup_exit(2);
-		}
-		if (signalled_keydrop) {
-			logit("signal %d received; removing all keys",
-			    signalled_keydrop);
-			remove_all_identities();
-			signalled_keydrop = 0;
 		}
 		ptimeout_init(&timeout);
 		prepare_poll(&pfd, &npfd, &timeout, maxfds);

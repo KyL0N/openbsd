@@ -1,4 +1,4 @@
-/*	$OpenBSD: ospfe.c,v 1.78 2024/11/21 13:38:14 claudio Exp $ */
+/*	$OpenBSD: ospfe.c,v 1.72 2024/05/15 08:45:03 job Exp $ */
 
 /*
  * Copyright (c) 2005 Claudio Jeker <claudio@openbsd.org>
@@ -155,12 +155,9 @@ ospfe(struct ospfd_conf *xconf, int pipe_parent2ospfe[2], int pipe_ospfe2rde[2],
 	if ((iev_rde = malloc(sizeof(struct imsgev))) == NULL ||
 	    (iev_main = malloc(sizeof(struct imsgev))) == NULL)
 		fatal(NULL);
-	if (imsgbuf_init(&iev_rde->ibuf, pipe_ospfe2rde[0]) == -1)
-		fatal(NULL);
+	imsg_init(&iev_rde->ibuf, pipe_ospfe2rde[0]);
 	iev_rde->handler = ospfe_dispatch_rde;
-	if (imsgbuf_init(&iev_main->ibuf, pipe_parent2ospfe[1]) == -1)
-		fatal(NULL);
-	imsgbuf_allow_fdpass(&iev_main->ibuf);
+	imsg_init(&iev_main->ibuf, pipe_parent2ospfe[1]);
 	iev_main->handler = ospfe_dispatch_main;
 
 	/* setup event handler */
@@ -202,11 +199,11 @@ ospfe_shutdown(void)
 	struct iface	*iface;
 
 	/* close pipes */
-	imsgbuf_write(&iev_rde->ibuf);
-	imsgbuf_clear(&iev_rde->ibuf);
+	msgbuf_write(&iev_rde->ibuf.w);
+	msgbuf_clear(&iev_rde->ibuf.w);
 	close(iev_rde->ibuf.fd);
-	imsgbuf_write(&iev_main->ibuf);
-	imsgbuf_clear(&iev_main->ibuf);
+	msgbuf_write(&iev_main->ibuf.w);
+	msgbuf_clear(&iev_main->ibuf.w);
 	close(iev_main->ibuf.fd);
 
 	/* stop all interfaces and remove all areas */
@@ -261,18 +258,16 @@ ospfe_dispatch_main(int fd, short event, void *bula)
 	int			 n, stub_changed, shut = 0, isvalid, wasvalid;
 
 	if (event & EV_READ) {
-		if ((n = imsgbuf_read(ibuf)) == -1)
-			fatal("imsgbuf_read error");
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+			fatal("imsg_read error");
 		if (n == 0)	/* connection closed */
 			shut = 1;
 	}
 	if (event & EV_WRITE) {
-		if (imsgbuf_write(ibuf) == -1) {
-			if (errno == EPIPE)	/* connection closed */
-				shut = 1;
-			else
-				fatal("imsgbuf_write");
-		}
+		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
+			fatal("msgbuf_write");
+		if (n == 0)	/* connection closed */
+			shut = 1;
 	}
 
 	for (;;) {
@@ -454,18 +449,16 @@ ospfe_dispatch_rde(int fd, short event, void *bula)
 	u_int16_t		 l, age;
 
 	if (event & EV_READ) {
-		if ((n = imsgbuf_read(ibuf)) == -1)
-			fatal("imsgbuf_read error");
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+			fatal("imsg_read error");
 		if (n == 0)	/* connection closed */
 			shut = 1;
 	}
 	if (event & EV_WRITE) {
-		if (imsgbuf_write(ibuf) == -1) {
-			if (errno == EPIPE)	/* connection closed */
-				shut = 1;
-			else
-				fatal("imsgbuf_write");
-		}
+		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
+			fatal("msgbuf_write");
+		if (n == 0)	/* connection closed */
+			shut = 1;
 	}
 
 	for (;;) {

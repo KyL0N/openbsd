@@ -1,4 +1,4 @@
-/*	$OpenBSD: constraint.c,v 1.60 2024/11/21 13:38:14 claudio Exp $	*/
+/*	$OpenBSD: constraint.c,v 1.56 2023/12/20 15:36:36 otto Exp $	*/
 
 /*
  * Copyright (c) 2015 Reyk Floeter <reyk@openbsd.org>
@@ -235,6 +235,7 @@ priv_constraint_msg(u_int32_t id, u_int8_t *data, size_t len, int argc,
 	struct ntp_addr		*h;
 	struct constraint	*cstr;
 	int			 pipes[2];
+	int			 rv;
 
 	if ((cstr = constraint_byid(id)) != NULL) {
 		log_warnx("IMSG_CONSTRAINT_QUERY repeated for id %d", id);
@@ -270,42 +271,22 @@ priv_constraint_msg(u_int32_t id, u_int8_t *data, size_t len, int argc,
 
 	/* Prepare and send constraint data to child. */
 	cstr->fd = pipes[0];
-	if (imsgbuf_init(&cstr->ibuf, cstr->fd) == -1)
-		fatal("imsgbuf_init");
+	imsg_init(&cstr->ibuf, cstr->fd);
 	if (imsg_compose(&cstr->ibuf, IMSG_CONSTRAINT_QUERY, id, 0, -1,
 	    data, len) == -1)
 		fatal("%s: imsg_compose", __func__);
+	do {
+		rv = imsg_flush(&cstr->ibuf);
+	} while (rv == -1 && errno == EAGAIN);
+	if (rv == -1)
+		fatal("imsg_flush");
+
 	/*
 	 * Fork child handlers and make sure to do any sensitive work in the
 	 * the (unprivileged) child.  The parent should not do any parsing,
 	 * certificate loading etc.
 	 */
 	cstr->pid = start_child(CONSTRAINT_PROC_NAME, pipes[1], argc, argv);
-
-	if (imsgbuf_flush(&cstr->ibuf) == -1)
-		fatal("imsgbuf_flush");
-}
-
-static int
-imsgbuf_read_one(struct imsgbuf *imsgbuf, struct imsg *imsg)
-{
-	while (1) {
-		switch (imsg_get(imsgbuf, imsg)) {
-		case -1:
-			return (-1);
-		case 0:
-			break;
-		default:
-			return (1);
-		}
-
-		switch (imsgbuf_read(imsgbuf)) {
-		case -1:
-			return (-1);
-		case 0:
-			return (0);
-		}
-	}
 }
 
 void
@@ -314,16 +295,15 @@ priv_constraint_readquery(struct constraint *cstr, struct ntp_addr_msg *am,
 {
 	struct ntp_addr		*h;
 	uint8_t			*dptr;
+	int			 n;
 	struct imsg		 imsg;
 	size_t			 mlen;
 
 	/* Read the message our parent left us. */
-	switch (imsgbuf_read_one(&cstr->ibuf, &imsg)) {
-	case -1:
-		fatal("%s: imsgbuf_read_one", __func__);
-	case 0:
-		fatalx("%s: imsgbuf_read_one: connection closed", __func__);
-	}
+	if (((n = imsg_read(&cstr->ibuf)) == -1 && errno != EAGAIN) || n == 0)
+		fatal("%s: imsg_read", __func__);
+	if (((n = imsg_get(&cstr->ibuf, &imsg)) == -1) || n == 0)
+		fatal("%s: imsg_get", __func__);
 	if (imsg.hdr.type != IMSG_CONSTRAINT_QUERY)
 		fatalx("%s: invalid message type", __func__);
 
@@ -367,7 +347,7 @@ priv_constraint_child(const char *pw_dir, uid_t pw_uid, gid_t pw_gid)
 	struct sigaction	 sa;
 	void			*ctx;
 	struct iovec		 iov[2];
-	int			 i;
+	int			 i, rv;
 
 	log_procinit("constraint");
 
@@ -401,8 +381,7 @@ priv_constraint_child(const char *pw_dir, uid_t pw_uid, gid_t pw_gid)
 		fatal("pledge");
 
 	cstr.fd = CONSTRAINT_PASSFD;
-	if (imsgbuf_init(&cstr.ibuf, cstr.fd) == -1)
-		fatal("imsgbuf_init");
+	imsg_init(&cstr.ibuf, cstr.fd);
 	priv_constraint_readquery(&cstr, &am, &data);
 
 	/*
@@ -457,7 +436,9 @@ priv_constraint_child(const char *pw_dir, uid_t pw_uid, gid_t pw_gid)
 	iov[1].iov_len = sizeof(xmttv);
 	imsg_composev(&cstr.ibuf,
 	    IMSG_CONSTRAINT_RESULT, 0, 0, -1, iov, 2);
-	imsgbuf_flush(&cstr.ibuf);
+	do {
+		rv = imsg_flush(&cstr.ibuf);
+	} while (rv == -1 && errno == EAGAIN);
 
 	/* Tear down the TLS connection after sending the result */
 	httpsdate_free(ctx);
@@ -605,7 +586,7 @@ constraint_remove(struct constraint *cstr)
 {
 	TAILQ_REMOVE(&conf->constraints, cstr, entry);
 
-	imsgbuf_clear(&cstr->ibuf);
+	msgbuf_clear(&cstr->ibuf.w);
 	if (cstr->fd != -1)
 		close(cstr->fd);
 	free(cstr->addr_head.name);
@@ -637,7 +618,7 @@ priv_constraint_dispatch(struct pollfd *pfd)
 	if (!(pfd->revents & POLLIN))
 		return (0);
 
-	if (imsgbuf_read(&cstr->ibuf) != 1) {
+	if (((n = imsg_read(&cstr->ibuf)) == -1 && errno != EAGAIN) || n == 0) {
 		/* there's a race between SIGCHLD delivery and reading imsg
 		   but if we've seen the reply, we're good */
 		priv_constraint_close(pfd->fd, cstr->state !=

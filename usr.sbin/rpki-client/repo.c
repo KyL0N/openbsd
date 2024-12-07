@@ -1,4 +1,4 @@
-/*	$OpenBSD: repo.c,v 1.70 2024/11/13 12:51:04 tb Exp $ */
+/*	$OpenBSD: repo.c,v 1.67 2024/09/19 20:48:36 tb Exp $ */
 /*
  * Copyright (c) 2021 Claudio Jeker <claudio@openbsd.org>
  * Copyright (c) 2019 Kristaps Dzonsons <kristaps@bsd.lv>
@@ -80,7 +80,7 @@ struct tarepo {
 	char			*descr;
 	char			*basedir;
 	char			**uri;
-	size_t			 num_uris;
+	size_t			 urisz;
 	size_t			 uriidx;
 	unsigned int		 id;
 	enum repo_state		 state;
@@ -356,14 +356,14 @@ static void
 ta_fetch(struct tarepo *tr)
 {
 	if (!rrdpon) {
-		for (; tr->uriidx < tr->num_uris; tr->uriidx++) {
+		for (; tr->uriidx < tr->urisz; tr->uriidx++) {
 			if (strncasecmp(tr->uri[tr->uriidx],
 			    RSYNC_PROTO, RSYNC_PROTO_LEN) == 0)
 				break;
 		}
 	}
 
-	if (tr->uriidx >= tr->num_uris) {
+	if (tr->uriidx >= tr->urisz) {
 		tr->state = REPO_FAILED;
 		logx("ta/%s: fallback to cache", tr->descr);
 
@@ -426,9 +426,9 @@ ta_get(struct tal *tal)
 	}
 
 	/* steal URI information from TAL */
-	tr->num_uris = tal->num_uris;
+	tr->urisz = tal->urisz;
 	tr->uri = tal->uri;
-	tal->num_uris = 0;
+	tal->urisz = 0;
 	tal->uri = NULL;
 
 	ta_fetch(tr);
@@ -656,10 +656,10 @@ rrdp_session_parse(struct rrdprepo *rr)
 {
 	FILE *f;
 	struct rrdp_session *state;
-	int fd, ln = 0, deltacnt = 0;
+	int fd, i, ln = 0, deltacnt = 0;
 	const char *errstr;
 	char *line = NULL, *file;
-	size_t i, len = 0;
+	size_t len = 0;
 	ssize_t n;
 	time_t now, weeks;
 
@@ -749,7 +749,7 @@ rrdp_session_parse(struct rrdprepo *rr)
 	free(line);
 	free(state->session_id);
 	free(state->last_mod);
-	for (i = 0; i < sizeof(state->deltas) / sizeof(state->deltas[0]); i++)
+	for (i = 0; i < MAX_RRDP_DELTAS; i++)
 		free(state->deltas[i]);
 	memset(state, 0, sizeof(*state));
 	rr->last_reset = now;
@@ -1150,7 +1150,7 @@ ta_lookup(int id, struct tal *tal)
 {
 	struct repo	*rp;
 
-	if (tal->num_uris == 0)
+	if (tal->urisz == 0)
 		errx(1, "TAL %s has no URI", tal->descr);
 
 	/* Look up in repository table. (Lookup should actually fail here) */
@@ -1358,7 +1358,7 @@ repo_proto(const struct repo *rp)
 
 	if (rp->ta != NULL) {
 		const struct tarepo *tr = rp->ta;
-		if (tr->uriidx < tr->num_uris &&
+		if (tr->uriidx < tr->urisz &&
 		    strncasecmp(tr->uri[tr->uriidx], RSYNC_PROTO,
 		    RSYNC_PROTO_LEN) == 0)
 			return "rsync";
@@ -1500,8 +1500,6 @@ repo_stat_inc(struct repo *rp, int talid, enum rtype type, enum stype subtype)
 			rp->stats[talid].mfts++;
 		if (subtype == STYPE_FAIL)
 			rp->stats[talid].mfts_fail++;
-		if (subtype == STYPE_SEQNUM_GAP)
-			rp->stats[talid].mfts_gap++;
 		break;
 	case RTYPE_ROA:
 		switch (subtype) {

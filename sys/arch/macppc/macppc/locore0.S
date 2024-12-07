@@ -1,4 +1,4 @@
-/*	$OpenBSD: locore0.S,v 1.5 2024/10/24 17:37:06 gkoehler Exp $	*/
+/*	$OpenBSD: locore0.S,v 1.3 2022/12/08 01:25:45 guenther Exp $	*/
 /*	$NetBSD: locore.S,v 1.2 1996/10/16 19:33:09 ws Exp $	*/
 
 /*
@@ -113,6 +113,8 @@ start:
 	mtsprg	0,%r9
 	addi	%r8,%r8,INTSTK
 	stw	%r8,CI_INTSTK(%r9)
+	li	%r0,-1
+	stw	%r0,CI_INTRDEPTH(%r9)
 	addi	%r8,%r8,SPILLSTK+DDBSTK	/* leave room for spillstk and ddbstk */
 	lis	%r9,proc0paddr@ha
 	stw	%r8,proc0paddr@l(%r9)

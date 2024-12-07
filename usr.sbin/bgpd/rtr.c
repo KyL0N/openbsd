@@ -1,4 +1,4 @@
-/*	$OpenBSD: rtr.c,v 1.29 2024/12/02 15:13:57 claudio Exp $ */
+/*	$OpenBSD: rtr.c,v 1.23 2024/09/10 08:37:52 claudio Exp $ */
 
 /*
  * Copyright (c) 2020 Claudio Jeker <claudio@openbsd.org>
@@ -219,10 +219,7 @@ rtr_main(int debug, int verbose)
 
 	if ((ibuf_main = malloc(sizeof(struct imsgbuf))) == NULL)
 		fatal(NULL);
-	if (imsgbuf_init(ibuf_main, 3) == -1 ||
-	    imsgbuf_set_maxsize(ibuf_main, MAX_BGPD_IMSGSIZE) == -1)
-		fatal(NULL);
-	imsgbuf_allow_fdpass(ibuf_main);
+	imsg_init(ibuf_main, 3);
 
 	conf = new_config();
 	log_info("rtr engine ready");
@@ -267,7 +264,7 @@ rtr_main(int debug, int verbose)
 
 		if (handle_pollfd(&pfd[PFD_PIPE_RDE], ibuf_rde) == -1) {
 			log_warnx("RTR: Lost connection to RDE");
-			imsgbuf_clear(ibuf_rde);
+			msgbuf_clear(&ibuf_rde->w);
 			free(ibuf_rde);
 			ibuf_rde = NULL;
 		} else
@@ -293,11 +290,11 @@ rtr_main(int debug, int verbose)
 
 	/* close pipes */
 	if (ibuf_rde) {
-		imsgbuf_clear(ibuf_rde);
+		msgbuf_clear(&ibuf_rde->w);
 		close(ibuf_rde->fd);
 		free(ibuf_rde);
 	}
-	imsgbuf_clear(ibuf_main);
+	msgbuf_clear(&ibuf_main->w);
 	close(ibuf_main->fd);
 	free(ibuf_main);
 
@@ -334,25 +331,22 @@ rtr_dispatch_imsg_parent(struct imsgbuf *imsgbuf)
 			if (ibuf_rde) {
 				log_warnx("Unexpected imsg ctl "
 				    "connection to RDE received");
-				imsgbuf_clear(ibuf_rde);
+				msgbuf_clear(&ibuf_rde->w);
 				free(ibuf_rde);
 			}
 			if ((ibuf_rde = malloc(sizeof(struct imsgbuf))) == NULL)
 				fatal(NULL);
-			if (imsgbuf_init(ibuf_rde, fd) == -1 ||
-			    imsgbuf_set_maxsize(ibuf_rde, MAX_BGPD_IMSGSIZE) ==
-			    -1)
-				fatal(NULL);
+			imsg_init(ibuf_rde, fd);
 			break;
-		case IMSG_SOCKET_SETUP:
+		case IMSG_SOCKET_CONN:
 			if ((fd = imsg_get_fd(&imsg)) == -1) {
 				log_warnx("expected to receive imsg fd "
 				    "but didn't receive any");
 				break;
 			}
 			if ((rs = rtr_get(rtrid)) == NULL) {
-				log_warnx("IMSG_SOCKET_SETUP: "
-				    "unknown rtr id %d", rtrid);
+				log_warnx("IMSG_SOCKET_CONN: unknown rtr id %d",
+				    rtrid);
 				close(fd);
 				break;
 			}
@@ -538,6 +532,14 @@ rtr_recalc(void)
 	/* walk tree in reverse because aspa_add_set requires that */
 	RB_FOREACH_REVERSE(aspa, aspa_tree, &at) {
 		struct aspa_set	as = { .as = aspa->as, .num = aspa->num };
+
+		/* XXX prevent oversized IMSG for now */
+		if (aspa->num * sizeof(*aspa->tas) >
+		    MAX_IMSGSIZE - IMSG_HEADER_SIZE) {
+			log_warnx("oversized ASPA set for customer-as %s, %s",
+			    log_as(aspa->as), "dropped");
+			continue;
+		}
 
 		imsg_compose(ibuf_rde, IMSG_RECONF_ASPA, 0, 0, -1,
 		    &as, offsetof(struct aspa_set, tas));

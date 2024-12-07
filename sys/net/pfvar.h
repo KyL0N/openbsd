@@ -1,4 +1,4 @@
-/*	$OpenBSD: pfvar.h,v 1.541 2024/11/12 04:14:51 dlg Exp $ */
+/*	$OpenBSD: pfvar.h,v 1.539 2024/08/27 13:52:41 aisha Exp $ */
 
 /*
  * Copyright (c) 2001 Daniel Hartmeier
@@ -36,6 +36,7 @@
 
 #include <sys/queue.h>
 #include <sys/tree.h>
+#include <sys/rwlock.h>
 #include <sys/syslimits.h>
 #include <sys/refcnt.h>
 #include <sys/timeout.h>
@@ -1241,7 +1242,7 @@ struct pf_status {
 #define PF_PRIO_ZERO		0xff		/* match "prio 0" packets */
 
 struct pf_queue_bwspec {
-	uint64_t	absolute;
+	u_int		absolute;
 	u_int		percent;
 };
 

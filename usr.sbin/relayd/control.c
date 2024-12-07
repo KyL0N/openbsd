@@ -1,4 +1,4 @@
-/*	$OpenBSD: control.c,v 1.64 2024/11/21 13:38:45 claudio Exp $	*/
+/*	$OpenBSD: control.c,v 1.58 2023/03/08 04:43:14 guenther Exp $	*/
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
@@ -159,18 +159,12 @@ control_accept(int listenfd, short event, void *arg)
 	}
 
 	if ((c = calloc(1, sizeof(struct ctl_conn))) == NULL) {
+		close(connfd);
 		log_warn("%s: calloc", __func__);
-		close(connfd);
 		return;
 	}
 
-	if (imsgbuf_init(&c->iev.ibuf, connfd) == -1) {
-		log_warn("%s: imsgbuf_init", __func__);
-		close(connfd);
-		free(c);
-		return;
-	}
-
+	imsg_init(&c->iev.ibuf, connfd);
 	c->iev.handler = control_dispatch_imsg;
 	c->iev.events = EV_READ;
 	c->iev.data = cs;	/* proc.c cheats (reuses the handler) */
@@ -204,7 +198,7 @@ control_close(int fd, struct control_sock *cs)
 		return;
 	}
 
-	imsgbuf_clear(&c->iev.ibuf);
+	msgbuf_clear(&c->iev.ibuf.w);
 	TAILQ_REMOVE(&ctl_conns, c, entry);
 
 	event_del(&c->iev.ev);
@@ -237,14 +231,15 @@ control_dispatch_imsg(int fd, short event, void *arg)
 	}
 
 	if (event & EV_READ) {
-		if (imsgbuf_read(&c->iev.ibuf) != 1) {
+		if (((n = imsg_read(&c->iev.ibuf)) == -1 && errno != EAGAIN) ||
+		    n == 0) {
 			control_close(fd, cs);
 			return;
 		}
 	}
 
 	if (event & EV_WRITE) {
-		if (imsgbuf_write(&c->iev.ibuf) == -1) {
+		if (msgbuf_write(&c->iev.ibuf.w) <= 0 && errno != EAGAIN) {
 			control_close(fd, cs);
 			return;
 		}

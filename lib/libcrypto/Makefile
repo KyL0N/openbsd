@@ -1,4 +1,4 @@
-# $OpenBSD: Makefile,v 1.228 2024/11/16 10:38:10 tb Exp $
+# $OpenBSD: Makefile,v 1.211 2024/08/31 15:56:09 jsing Exp $
 
 LIB=	crypto
 LIBREBUILD=y
@@ -56,12 +56,16 @@ VERSION_SCRIPT=	Symbols.map
 SYMBOL_LIST=	${.CURDIR}/Symbols.list
 
 # crypto/
-SRCS+= crypto_err.c
+SRCS+= cpt_err.c
+SRCS+= cryptlib.c
 SRCS+= crypto_ex_data.c
 SRCS+= crypto_init.c
-SRCS+= crypto_legacy.c
 SRCS+= crypto_lock.c
-SRCS+= crypto_memory.c
+SRCS+= cversion.c
+SRCS+= malloc-wrapper.c
+SRCS+= mem_clr.c
+SRCS+= mem_dbg.c
+SRCS+= o_fips.c
 
 # aes/
 SRCS+= aes.c
@@ -226,6 +230,7 @@ SRCS+= conf_api.c
 SRCS+= conf_def.c
 SRCS+= conf_err.c
 SRCS+= conf_lib.c
+SRCS+= conf_mall.c
 SRCS+= conf_mod.c
 SRCS+= conf_sap.c
 
@@ -277,15 +282,21 @@ SRCS+= dsa_prn.c
 # ec/
 SRCS+= ec_ameth.c
 SRCS+= ec_asn1.c
-SRCS+= ec_convert.c
+SRCS+= ec_check.c
 SRCS+= ec_curve.c
+SRCS+= ec_cvt.c
 SRCS+= ec_err.c
 SRCS+= ec_key.c
+SRCS+= ec_kmeth.c
 SRCS+= ec_lib.c
 SRCS+= ec_mult.c
+SRCS+= ec_oct.c
 SRCS+= ec_pmeth.c
+SRCS+= ec_print.c
 SRCS+= eck_prn.c
-SRCS+= ecp_methods.c
+SRCS+= ecp_mont.c
+SRCS+= ecp_oct.c
+SRCS+= ecp_smpl.c
 SRCS+= ecx_methods.c
 
 # ecdh/

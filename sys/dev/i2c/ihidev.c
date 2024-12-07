@@ -1,4 +1,4 @@
-/* $OpenBSD: ihidev.c,v 1.33 2024/10/18 12:53:49 tobhe Exp $ */
+/* $OpenBSD: ihidev.c,v 1.32 2024/08/19 09:26:58 kettenis Exp $ */
 /*
  * HID-over-i2c driver
  *
@@ -67,7 +67,6 @@ int	ihidev_activate(struct device *, int);
 
 int	ihidev_hid_command(struct ihidev_softc *, int, void *);
 int	ihidev_intr(void *);
-int	ihidev_poweron(struct ihidev_softc *);
 int	ihidev_reset(struct ihidev_softc *);
 int	ihidev_hid_desc_parse(struct ihidev_softc *);
 
@@ -249,7 +248,7 @@ ihidev_activate(struct device *self, int act)
 			    sc->sc_dev.dv_xname);
 		break;
 	case DVACT_WAKEUP:
-		ihidev_poweron(sc);
+		ihidev_reset(sc);
 		sc->sc_dying = 0;
 		if (sc->sc_poll && timeout_initialized(&sc->sc_timer))
 			timeout_add(&sc->sc_timer, 2000);
@@ -526,7 +525,7 @@ ihidev_hid_command(struct ihidev_softc *sc, int hidcmd, void *arg)
 }
 
 int
-ihidev_poweron(struct ihidev_softc *sc)
+ihidev_reset(struct ihidev_softc *sc)
 {
 	DPRINTF(("%s: resetting\n", sc->sc_dev.dv_xname));
 
@@ -536,16 +535,6 @@ ihidev_poweron(struct ihidev_softc *sc)
 	}
 
 	ihidev_sleep(sc, 100);
-
-	return 0;
-}
-
-
-int
-ihidev_reset(struct ihidev_softc *sc)
-{
-	if (ihidev_poweron(sc))
-		return (1);
 
 	if (ihidev_hid_command(sc, I2C_HID_CMD_RESET, 0)) {
 		printf("%s: failed to reset hardware\n", sc->sc_dev.dv_xname);
@@ -795,7 +784,7 @@ ihidev_open(struct ihidev *scd)
 		return (0);
 
 	/* power on */
-	ihidev_poweron(sc);
+	ihidev_reset(sc);
 
 	if (sc->sc_poll) {
 		if (!timeout_initialized(&sc->sc_timer))

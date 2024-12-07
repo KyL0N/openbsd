@@ -1,10 +1,9 @@
 #!/bin/sh
-#       $OpenBSD: mlkem768.sh,v 1.3 2024/10/27 02:06:01 djm Exp $
+#       $OpenBSD: mlkem768.sh,v 1.2 2024/09/04 05:11:33 djm Exp $
 #       Placed in the Public Domain.
 #
 
-#WANT_LIBCRUX_REVISION="origin/main"
-WANT_LIBCRUX_REVISION="84c5d87b3092c59294345aa269ceefe0eb97cc35"
+WANT_LIBCRUX_REVISION="origin/main"
 
 FILES="
 	libcrux/libcrux-ml-kem/cg/eurydice_glue.h
@@ -48,7 +47,6 @@ echo '#define KRML_NOINLINE __attribute__((noinline, unused))'
 echo '#define KRML_HOST_EPRINTF(...)'
 echo '#define KRML_HOST_EXIT(x) fatal_f("internal error")'
 echo
-
 for i in $FILES; do
 	echo "/* from $i */"
 	# Changes to all files:
@@ -58,16 +56,11 @@ for i in $FILES; do
 	    -e 's/[	 ]*$//' \
 	    $i | \
 	case "$i" in
-	*/libcrux-ml-kem/cg/eurydice_glue.h)
-		# Replace endian functions with versions that work.
-		perl -0777 -pe 's/(static inline void core_num__u64_9__to_le_bytes.*\n)([^}]*\n)/\1  v = htole64(v);\n\2/' |
-		perl -0777 -pe 's/(static inline uint64_t core_num__u64_9__from_le_bytes.*?)return v;/\1return le64toh(v);/s' |
-		perl -0777 -pe 's/(static inline uint32_t core_num__u32_8__from_le_bytes.*?)return v;/\1return le32toh(v);/s'
-		;;
+	# XXX per-file handling goes here.
 	# Default: pass through.
 	*)
-		cat
-		;;
+	    cat
+	    ;;
 	esac
 	echo
 done

@@ -1,4 +1,4 @@
-/*	$OpenBSD: vionet.c,v 1.22 2024/11/21 13:39:34 claudio Exp $	*/
+/*	$OpenBSD: vionet.c,v 1.16 2024/07/12 14:34:08 jan Exp $	*/
 
 /*
  * Copyright (c) 2023 Dave Voutila <dv@openbsd.org>
@@ -16,6 +16,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#include <sys/socket.h>
 #include <sys/types.h>
 
 #include <dev/pci/virtio_pcireg.h>
@@ -241,11 +242,7 @@ vionet_main(int fd, int fd_vmm)
 	/* Configure our sync channel event handler. */
 	log_debug("%s: wiring in sync channel handler (fd=%d)", __func__,
 		dev.sync_fd);
-	if (imsgbuf_init(&dev.sync_iev.ibuf, dev.sync_fd) == -1) {
-		log_warnx("imsgbuf_init");
-		goto fail;
-	}
-	imsgbuf_allow_fdpass(&dev.sync_iev.ibuf);
+	imsg_init(&dev.sync_iev.ibuf, dev.sync_fd);
 	dev.sync_iev.handler = handle_sync_io;
 	dev.sync_iev.data = &dev;
 	dev.sync_iev.events = EV_READ;
@@ -301,7 +298,7 @@ fail:
 	msg.data = ret;
 	imsg_compose(&dev.sync_iev.ibuf, IMSG_DEVOP_MSG, 0, 0, -1, &msg,
 	    sizeof(msg));
-	imsgbuf_flush(&dev.sync_iev.ibuf);
+	imsg_flush(&dev.sync_iev.ibuf);
 
 	close_fd(dev.sync_fd);
 	close_fd(dev.async_fd);
@@ -907,8 +904,8 @@ dev_dispatch_vm(int fd, short event, void *arg)
 		fatalx("%s: missing vionet pointer", __func__);
 
 	if (event & EV_READ) {
-		if ((n = imsgbuf_read(ibuf)) == -1)
-			fatal("%s: imsgbuf_read", __func__);
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+			fatal("%s: imsg_read", __func__);
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
 			log_debug("%s: pipe dead (EV_READ)", __func__);
@@ -919,15 +916,14 @@ dev_dispatch_vm(int fd, short event, void *arg)
 	}
 
 	if (event & EV_WRITE) {
-		if (imsgbuf_write(ibuf) == -1) {
-			if (errno == EPIPE) {
-				/* this pipe is dead, remove the handler */
-				log_debug("%s: pipe dead (EV_WRITE)", __func__);
-				event_del(&iev->ev);
-				event_loopexit(NULL);
-				return;
-			}
-			fatal("%s: imsgbuf_write", __func__);
+		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
+			fatal("%s: msgbuf_write", __func__);
+		if (n == 0) {
+			/* this pipe is dead, so remove the event handler */
+			log_debug("%s: pipe dead (EV_WRITE)", __func__);
+			event_del(&iev->ev);
+			event_base_loopexit(ev_base_main, NULL);
+			return;
 		}
 	}
 
@@ -980,8 +976,8 @@ handle_sync_io(int fd, short event, void *arg)
 	int8_t intr = INTR_STATE_NOOP;
 
 	if (event & EV_READ) {
-		if ((n = imsgbuf_read(ibuf)) == -1)
-			fatal("%s: imsgbuf_read", __func__);
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+			fatal("%s: imsg_read", __func__);
 		if (n == 0) {
 			/* this pipe is dead, so remove the event handler */
 			log_debug("%s: pipe dead (EV_READ)", __func__);
@@ -992,15 +988,14 @@ handle_sync_io(int fd, short event, void *arg)
 	}
 
 	if (event & EV_WRITE) {
-		if (imsgbuf_write(ibuf) == -1) {
-			if (errno == EPIPE) {
-				/* this pipe is dead, remove the handler */
-				log_debug("%s: pipe dead (EV_WRITE)", __func__);
-				event_del(&iev->ev);
-				event_loopexit(NULL);
-				return;
-			}
-			fatal("%s: imsgbuf_write", __func__);
+		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
+			fatal("%s: msgbuf_write", __func__);
+		if (n == 0) {
+			/* this pipe is dead, so remove the event handler */
+			log_debug("%s: pipe dead (EV_WRITE)", __func__);
+			event_del(&iev->ev);
+			event_base_loopexit(ev_base_main, NULL);
+			return;
 		}
 	}
 

@@ -1,4 +1,4 @@
-/*	$OpenBSD: pppstats.c,v 1.15 2024/11/04 11:12:52 deraadt Exp $	*/
+/*	$OpenBSD: pppstats.c,v 1.14 2024/08/10 05:32:28 jsg Exp $	*/
 
 /*
  * print PPP statistics:
@@ -305,7 +305,6 @@ intpr(void)
 int
 main(int argc, char *argv[])
 {
-	const char *errstr;
 	int c;
 	struct ifreq ifr;
 
@@ -329,13 +328,13 @@ main(int argc, char *argv[])
 			zflag = 1;
 			break;
 		case 'c':
-			count = strtonum(optarg, 1, 1000, &errstr);
-			if (errstr)
+			count = atoi(optarg);
+			if (count <= 0)
 				usage();
 			break;
 		case 'w':
-			interval = strtonum(optarg, 1, 1000, &errstr);
-			if (errstr)
+			interval = atoi(optarg);
+			if (interval <= 0)
 				usage();
 			break;
 		default:

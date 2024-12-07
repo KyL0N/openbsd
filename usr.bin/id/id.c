@@ -1,4 +1,4 @@
-/*	$OpenBSD: id.c,v 1.31 2024/11/04 21:59:15 jca Exp $	*/
+/*	$OpenBSD: id.c,v 1.30 2023/05/30 16:44:16 op Exp $	*/
 
 /*-
  * Copyright (c) 1991, 1993
@@ -269,7 +269,7 @@ void
 user(struct passwd *pw)
 {
 	gid_t gid, groups[NGROUPS_MAX + 1];
-	int cnt, maxgroups, ngroups;
+	int cnt, ngroups;
 	uid_t uid;
 	struct group *gr;
 	char *prefix;
@@ -279,11 +279,8 @@ user(struct passwd *pw)
 	(void)printf(" gid=%u", pw->pw_gid);
 	if ((gr = getgrgid(pw->pw_gid)))
 		(void)printf("(%s)", gr->gr_name);
-	maxgroups = ngroups = NGROUPS_MAX + 1;
-	if (getgrouplist(pw->pw_name, pw->pw_gid, groups, &ngroups) == -1) {
-		/* Silently truncate group list */
-		ngroups = maxgroups;
-	}
+	ngroups = NGROUPS_MAX + 1;
+	(void) getgrouplist(pw->pw_name, pw->pw_gid, groups, &ngroups);
 	prefix = " groups=";
 	for (cnt = 0; cnt < ngroups;) {
 		gid = groups[cnt];
@@ -301,20 +298,14 @@ user(struct passwd *pw)
 void
 group(struct passwd *pw, int nflag)
 {
-	int cnt, maxgroups, ngroups;
+	int cnt, ngroups;
 	gid_t gid, groups[NGROUPS_MAX + 1];
 	struct group *gr;
 	char *prefix;
 
 	if (pw) {
-		int ret;
-
-		maxgroups = ngroups = NGROUPS_MAX + 1;
-		ret = getgrouplist(pw->pw_name, pw->pw_gid, groups, &ngroups);
-		if (ret == -1) {
-			/* Silently truncate group list */
-			ngroups = maxgroups;
-		}
+		ngroups = NGROUPS_MAX + 1;
+		(void) getgrouplist(pw->pw_name, pw->pw_gid, groups, &ngroups);
 	} else {
 		groups[0] = getgid();
 		ngroups = getgroups(NGROUPS_MAX, groups + 1) + 1;

@@ -1,4 +1,4 @@
-/*	$OpenBSD: uvm_vnode.c,v 1.135 2024/11/27 10:41:38 mpi Exp $	*/
+/*	$OpenBSD: uvm_vnode.c,v 1.133 2024/07/24 12:16:21 mpi Exp $	*/
 /*	$NetBSD: uvm_vnode.c,v 1.36 2000/11/24 20:34:01 chs Exp $	*/
 
 /*
@@ -306,14 +306,15 @@ uvn_detach(struct uvm_object *uobj)
 	struct vnode *vp;
 	int oldflags;
 
+	KERNEL_LOCK();
 	rw_enter(uobj->vmobjlock, RW_WRITE);
 	uobj->uo_refs--;			/* drop ref! */
 	if (uobj->uo_refs) {			/* still more refs */
 		rw_exit(uobj->vmobjlock);
+		KERNEL_UNLOCK();
 		return;
 	}
 
-	KERNEL_LOCK();
 	/* get other pointers ... */
 	uvn = (struct uvm_vnode *) uobj;
 	vp = uvn->u_vnode;
@@ -970,6 +971,7 @@ uvn_get(struct uvm_object *uobj, voff_t offset, struct vm_page **pps,
 
 		for (lcv = 0, current_offset = offset ; lcv < *npagesp ;
 		    lcv++, current_offset += PAGE_SIZE) {
+
 			/* do we care about this page?  if not, skip it */
 			if (pps[lcv] == PGO_DONTCARE)
 				continue;
@@ -977,14 +979,12 @@ uvn_get(struct uvm_object *uobj, voff_t offset, struct vm_page **pps,
 			/* lookup page */
 			ptmp = uvm_pagelookup(uobj, current_offset);
 
-			/*
-			 * to be useful must get a non-busy page
-			 */
-			if (ptmp == NULL || (ptmp->pg_flags & PG_BUSY) != 0) {
-				if (lcv == centeridx ||
-				    (flags & PGO_ALLPAGES) != 0)
-					/* need to do a wait or I/O! */
-					done = FALSE;
+			/* to be useful must get a non-busy, non-released pg */
+			if (ptmp == NULL ||
+			    (ptmp->pg_flags & PG_BUSY) != 0) {
+				if (lcv == centeridx || (flags & PGO_ALLPAGES)
+				    != 0)
+					done = FALSE;	/* need to do a wait or I/O! */
 				continue;
 			}
 
@@ -1015,8 +1015,12 @@ uvn_get(struct uvm_object *uobj, voff_t offset, struct vm_page **pps,
 		 * step 1c: now we've either done everything needed or we to
 		 * unlock and do some waiting or I/O.
 		 */
+
 		*npagesp = gotpages;		/* let caller know */
-		return done ? VM_PAGER_OK : VM_PAGER_UNLOCK;
+		if (done)
+			return VM_PAGER_OK;		/* bingo! */
+		else
+			return VM_PAGER_UNLOCK;
 	}
 
 	/*

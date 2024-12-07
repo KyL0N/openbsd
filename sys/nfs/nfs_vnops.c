@@ -1,4 +1,4 @@
-/*	$OpenBSD: nfs_vnops.c,v 1.206 2024/11/05 06:03:19 jsg Exp $	*/
+/*	$OpenBSD: nfs_vnops.c,v 1.204 2024/09/18 05:21:19 jsg Exp $	*/
 /*	$NetBSD: nfs_vnops.c,v 1.62.4.1 1996/07/08 20:26:52 jtc Exp $	*/
 
 /*
@@ -3287,7 +3287,6 @@ nfs_advlock(void *v)
 int
 nfs_print(void *v)
 {
-#if defined(DEBUG) || defined(DIAGNOSTIC) || defined(VFSLCKDEBUG)
 	struct vop_print_args *ap = v;
 	struct vnode *vp = ap->a_vp;
 	struct nfsnode *np = VTONFS(vp);
@@ -3299,7 +3298,6 @@ nfs_print(void *v)
 		fifo_printinfo(vp);
 #endif
 	printf("\n");
-#endif
 	return (0);
 }
 
@@ -3516,7 +3514,7 @@ nfsspec_close(void *v)
 		np->n_flag |= NCHG;
 		if (vp->v_usecount == 1 &&
 		    (vp->v_mount->mnt_flag & MNT_RDONLY) == 0) {
-			vattr_null(&vattr);
+			VATTR_NULL(&vattr);
 			if (np->n_flag & NACC)
 				vattr.va_atime = np->n_atim;
 			if (np->n_flag & NUPD)
@@ -3585,7 +3583,7 @@ nfsfifo_close(void *v)
 		np->n_flag |= NCHG;
 		if (vp->v_usecount == 1 &&
 		    (vp->v_mount->mnt_flag & MNT_RDONLY) == 0) {
-			vattr_null(&vattr);
+			VATTR_NULL(&vattr);
 			if (np->n_flag & NACC)
 				vattr.va_atime = np->n_atim;
 			if (np->n_flag & NUPD)

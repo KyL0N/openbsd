@@ -1,4 +1,4 @@
-/*	$OpenBSD: rwlock.h,v 1.30 2024/12/03 12:50:16 claudio Exp $	*/
+/*	$OpenBSD: rwlock.h,v 1.28 2021/01/11 18:49:38 mpi Exp $	*/
 /*
  * Copyright (c) 2002 Artur Grabowski <art@openbsd.org>
  *

@@ -13,7 +13,7 @@
 
 #include "extern.h"
 
-static struct msgbuf	*httpq;
+static struct msgbuf	httpq;
 
 void
 logx(const char *fmt, ...)
@@ -66,7 +66,7 @@ http_request(unsigned int id, const char *uri, const char *last_mod, int fd)
 	io_str_buffer(b, last_mod);
 	/* pass file as fd */
 	b->fd = fd;
-	io_close_buffer(httpq, b);
+	io_close_buffer(&httpq, b);
 }
 
 static const char *
@@ -87,21 +87,13 @@ http_result(enum http_result res)
 static int
 http_response(int fd)
 {
-	struct ibuf *b;
+	struct ibuf *b, *httpbuf = NULL;
 	unsigned int id;
 	enum http_result res;
 	char *lastmod;
 
-	while (1) {
-		switch (msgbuf_read(fd, httpq)) {
-		case -1:
-			err(1, "msgbuf_read");
-		case 0:
-			errx(1, "msgbuf_read: connection closed");
-		}
-		if ((b = io_buf_get(httpq)) != NULL)
-			break;
-	}
+	while ((b = io_buf_read(fd, &httpbuf)) == NULL)
+		/* nothing */ ;
 
 	io_read_buf(b, &id, sizeof(id));
 	io_read_buf(b, &res, sizeof(res));
@@ -119,7 +111,7 @@ int
 main(int argc, char **argv)
 {
 	pid_t httppid;
-	int error, fd[2], outfd, httpfd;
+	int error, fd[2], outfd, http;
 	int fl = SOCK_STREAM | SOCK_CLOEXEC;
 	char *uri, *file, *mod;
 	unsigned int req = 0;
@@ -149,17 +141,20 @@ main(int argc, char **argv)
 	}
 
 	close(fd[0]);
-	httpfd = fd[1];
-	if ((httpq = msgbuf_new_reader(sizeof(size_t), io_parse_hdr, NULL)) ==
-	    NULL)
-		err(1, NULL);
+	http = fd[1];
+	msgbuf_init(&httpq);
+	httpq.fd = http;
 
 	if ((outfd = open(file, O_WRONLY|O_CREAT|O_TRUNC, 0666)) == -1)
 		err(1, "open %s", file);
 
 	http_request(req++, uri, mod, outfd);
-	if (msgbuf_write(httpfd, httpq) == -1)
+	switch (msgbuf_write(&httpq)) {
+	case 0:
+		errx(1, "write: connection closed");
+	case -1:
 		err(1, "write");
-	error = http_response(httpfd);
+	}
+	error = http_response(http);
 	return error;
 }

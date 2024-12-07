@@ -1,4 +1,4 @@
-/*	$OpenBSD: crypto_init.c,v 1.22 2024/10/17 14:27:57 jsing Exp $ */
+/*	$OpenBSD: crypto_init.c,v 1.21 2024/04/10 14:51:02 beck Exp $ */
 /*
  * Copyright (c) 2018 Bob Beck <beck@openbsd.org>
  *
@@ -27,7 +27,7 @@
 #include <openssl/objects.h>
 #include <openssl/x509v3.h>
 
-#include "crypto_internal.h"
+#include "cryptlib.h"
 #include "x509_issuer_cache.h"
 
 int OpenSSL_config(const char *);
@@ -48,8 +48,7 @@ OPENSSL_init_crypto_internal(void)
 {
 	crypto_init_thread = pthread_self();
 
-	crypto_cpu_caps_init();
-
+	OPENSSL_cpuid_setup();
 	ERR_load_crypto_strings();
 }
 

@@ -1,4 +1,4 @@
-/*	$OpenBSD: vmm.c,v 1.130 2024/11/21 13:39:34 claudio Exp $	*/
+/*	$OpenBSD: vmm.c,v 1.122 2024/09/11 15:42:52 bluhm Exp $	*/
 
 /*
  * Copyright (c) 2015 Mike Larkin <mlarkin@openbsd.org>
@@ -20,8 +20,14 @@
 #include <sys/ioctl.h>
 #include <sys/queue.h>
 #include <sys/wait.h>
+#include <sys/uio.h>
 #include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/mman.h>
 
+#include <dev/ic/i8253reg.h>
+#include <dev/isa/isareg.h>
+#include <dev/pci/pcireg.h>
 #include <dev/vmm/vmm.h>
 
 #include <net/if.h>
@@ -31,10 +37,14 @@
 #include <fcntl.h>
 #include <imsg.h>
 #include <limits.h>
+#include <poll.h>
+#include <pthread.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <util.h>
 
 #include "vmd.h"
 #include "atomicio.h"
@@ -318,7 +328,7 @@ vmm_dispatch_parent(int fd, struct privsep_proc *p, struct imsg *imsg)
 	case IMSG_VMDOP_RECEIVE_PSP_FD:
 		if (env->vmd_psp_fd > -1)
 			fatalx("already received psp fd");
-		env->vmd_psp_fd = imsg_get_fd(imsg);
+		env->vmd_psp_fd = imsg->fd;
 		break;
 	default:
 		return (-1);
@@ -470,11 +480,7 @@ vmm_pipe(struct vmd_vm *vm, int fd, void (*cb)(int, short, void *))
 		return (-1);
 	}
 
-	if (imsgbuf_init(&iev->ibuf, fd) == -1) {
-		log_warn("failed to init imsgbuf");
-		return (-1);
-	}
-	imsgbuf_allow_fdpass(&iev->ibuf);
+	imsg_init(&iev->ibuf, fd);
 	iev->handler = cb;
 	iev->data = vm;
 	imsg_event_add(iev);
@@ -499,8 +505,8 @@ vmm_dispatch_vm(int fd, short event, void *arg)
 	unsigned int		 i;
 
 	if (event & EV_READ) {
-		if ((n = imsgbuf_read(ibuf)) == -1)
-			fatal("%s: imsgbuf_read", __func__);
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+			fatal("%s: imsg_read", __func__);
 		if (n == 0) {
 			/* This pipe is dead, so remove the event handler */
 			event_del(&iev->ev);
@@ -509,13 +515,12 @@ vmm_dispatch_vm(int fd, short event, void *arg)
 	}
 
 	if (event & EV_WRITE) {
-		if (imsgbuf_write(ibuf) == -1) {
-			if (errno == EPIPE) {
-				/* This pipe is dead, remove the handler */
-				event_del(&iev->ev);
-				return;
-			}
-			fatal("%s: imsgbuf_write fd %d", __func__, ibuf->fd);
+		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
+			fatal("%s: msgbuf_write fd %d", __func__, ibuf->fd);
+		if (n == 0) {
+			/* This pipe is dead, so remove the event handler */
+			event_del(&iev->ev);
+			return;
 		}
 	}
 
@@ -767,6 +772,7 @@ vmm_start_vm(struct imsg *imsg, uint32_t *id, pid_t *pid)
 		 * Prepare our new argv for execvp(2) with the fd of our open
 		 * pipe to the parent/vmm process as an argument.
 		 */
+		memset(&nargv, 0, sizeof(nargv));
 		memset(num, 0, sizeof(num));
 		snprintf(num, sizeof(num), "%d", fds[1]);
 		memset(vmm_fd, 0, sizeof(vmm_fd));
@@ -774,23 +780,23 @@ vmm_start_vm(struct imsg *imsg, uint32_t *id, pid_t *pid)
 		memset(psp_fd, 0, sizeof(psp_fd));
 		snprintf(psp_fd, sizeof(psp_fd), "%d", env->vmd_psp_fd);
 
-		i = 0;
-		nargv[i++] = env->argv0;
-		nargv[i++] = "-V";
-		nargv[i++] = num;
-		nargv[i++] = "-i";
-		nargv[i++] = vmm_fd;
-		nargv[i++] = "-j";
-		nargv[i++] = psp_fd;
-		if (env->vmd_debug)
-			nargv[i++] = "-d";
-		if (env->vmd_verbose == 1)
-			nargv[i++] = "-v";
-		else if (env->vmd_verbose > 1)
-			nargv[i++] = "-vv";
-		nargv[i++] = NULL;
-		if (i > sizeof(nargv) / sizeof(nargv[0]))
-			fatalx("%s: nargv overflow", __func__);
+		nargv[0] = env->argv0;
+		nargv[1] = "-V";
+		nargv[2] = num;
+		nargv[3] = "-n";
+		nargv[4] = "-i";
+		nargv[5] = vmm_fd;
+		nargv[6] = "-j";
+		nargv[7] = psp_fd;
+		nargv[8] = NULL;
+
+		if (env->vmd_verbose == 1) {
+			nargv[8] = VMD_VERBOSE_1;
+			nargv[9] = NULL;
+		} else if (env->vmd_verbose > 1) {
+			nargv[8] = VMD_VERBOSE_2;
+			nargv[9] = NULL;
+		}
 
 		/* Control resumes in vmd main(). */
 		execvp(nargv[0], nargv);

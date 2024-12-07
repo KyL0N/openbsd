@@ -1,4 +1,4 @@
-/*	$OpenBSD: bt_parse.y,v 1.61 2024/11/07 09:20:09 mpi Exp $	*/
+/*	$OpenBSD: bt_parse.y,v 1.60 2024/03/30 07:41:45 mpi Exp $	*/
 
 /*
  * Copyright (c) 2019-2023 Martin Pieuchot <mpi@openbsd.org>
@@ -793,10 +793,15 @@ allowed_in_string(int x)
 	return (isalnum(x) || x == '_');
 }
 
-static int
-skip(void)
+int
+yylex(void)
 {
-	int c;
+	unsigned char	 buf[1024];
+	unsigned char	*ebuf, *p, *str;
+	int		 c;
+
+	ebuf = buf + sizeof(buf);
+	p = buf;
 
 again:
 	/* skip whitespaces */
@@ -832,22 +837,6 @@ again:
 			pc = c;
 		}
 	}
-
-	return c;
-}
-
-int
-yylex(void)
-{
-	unsigned char	 buf[1024];
-	unsigned char	*ebuf, *p, *str;
-	int		 c;
-
-	ebuf = buf + sizeof(buf);
-	p = buf;
-
-again:
-	c = skip();
 
 	switch (c) {
 	case '!':
@@ -973,16 +962,7 @@ again:
 		return 0;
 	case '"':
 		/* parse C-like string */
-		while ((c = lgetc()) != EOF) {
-			if (c == '"') {
-				/* handle multi-line strings */
-				c = skip();
-				if (c == '"')
-					continue;
-				else
-					lungetc();
-				break;
-			}
+		while ((c = lgetc()) != EOF && c != '"') {
 			if (c == '\\') {
 				c = lgetc();
 				switch (c) {

@@ -1,4 +1,4 @@
-/*	$OpenBSD: bgpd.h,v 1.501 2024/12/02 15:03:17 claudio Exp $ */
+/*	$OpenBSD: bgpd.h,v 1.496 2024/09/04 15:06:36 claudio Exp $ */
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
@@ -50,8 +50,8 @@
 
 #define	MAX_PKTSIZE			4096
 #define	MIN_HOLDTIME			3
-#define	MAX_BGPD_IMSGSIZE		(128 * 1024)
-#define	MAX_SOCK_BUF			(4 * IBUF_READ_SIZE)
+#define	READ_BUF_SIZE			65535
+#define	MAX_SOCK_BUF			(4 * READ_BUF_SIZE)
 #define	RT_BUF_SIZE			16384
 #define	MAX_RTSOCK_BUF			(2 * 1024 * 1024)
 #define	MAX_COMM_MATCH			3
@@ -379,7 +379,7 @@ enum auth_enc_alg {
 	AUTH_EALG_AES,
 };
 
-struct auth_config {
+struct peer_auth {
 	char			md5key[TCP_MD5_KEY_LEN];
 	char			auth_key_in[IPSEC_AUTH_KEY_LEN];
 	char			auth_key_out[IPSEC_AUTH_KEY_LEN];
@@ -452,6 +452,7 @@ struct peer_config {
 	struct bgpd_addr	 remote_addr;
 	struct bgpd_addr	 local_addr_v4;
 	struct bgpd_addr	 local_addr_v6;
+	struct peer_auth	 auth;
 	struct capabilities	 capabilities;
 	struct addpath_eval	 eval;
 	char			 group[PEER_DESCR_LEN];
@@ -569,7 +570,6 @@ enum rtr_error {
 struct rtr_config {
 	SIMPLEQ_ENTRY(rtr_config)	entry;
 	char				descr[PEER_DESCR_LEN];
-	struct auth_config		auth;
 	struct bgpd_addr		remote_addr;
 	struct bgpd_addr		local_addr;
 	uint32_t			id;
@@ -646,12 +646,9 @@ enum imsg_type {
 	IMSG_SOCKET_CONN,
 	IMSG_SOCKET_CONN_CTL,
 	IMSG_SOCKET_CONN_RTR,
-	IMSG_SOCKET_SETUP,
-	IMSG_SOCKET_TEARDOWN,
 	IMSG_RECONF_CONF,
 	IMSG_RECONF_RIB,
 	IMSG_RECONF_PEER,
-	IMSG_RECONF_PEER_AUTH,
 	IMSG_RECONF_FILTER,
 	IMSG_RECONF_LISTENER,
 	IMSG_RECONF_CTRL,
@@ -1395,11 +1392,10 @@ enum mrt_state {
 
 struct mrt {
 	char			rib[PEER_DESCR_LEN];
+	struct msgbuf		wbuf;
 	LIST_ENTRY(mrt)		entry;
-	struct msgbuf		*wbuf;
 	uint32_t		peer_id;
 	uint32_t		group_id;
-	int			fd;
 	enum mrt_type		type;
 	enum mrt_state		state;
 	uint16_t		seqnum;

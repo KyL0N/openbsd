@@ -8,9 +8,9 @@
 .\"
 .\" Created: Sun May  7 00:14:37 1995 ylo
 .\"
-.\" $OpenBSD: scp.1,v 1.113 2024/12/06 15:12:56 djm Exp $
+.\" $OpenBSD: scp.1,v 1.112 2022/12/16 07:13:22 djm Exp $
 .\"
-.Dd $Mdocdate: December 6 2024 $
+.Dd $Mdocdate: December 16 2022 $
 .Dt SCP 1
 .Os
 .Sh NAME
@@ -162,106 +162,67 @@ For full details of the options listed below, and their possible values, see
 .Xr ssh_config 5 .
 .Pp
 .Bl -tag -width Ds -offset indent -compact
-.It AddKeysToAgent
 .It AddressFamily
 .It BatchMode
 .It BindAddress
 .It BindInterface
-.It CASignatureAlgorithms
 .It CanonicalDomains
 .It CanonicalizeFallbackLocal
 .It CanonicalizeHostname
 .It CanonicalizeMaxDots
 .It CanonicalizePermittedCNAMEs
+.It CASignatureAlgorithms
 .It CertificateFile
-.It ChannelTimeout
 .It CheckHostIP
 .It Ciphers
-.It ClearAllForwardings
 .It Compression
-.It ConnectTimeout
 .It ConnectionAttempts
+.It ConnectTimeout
 .It ControlMaster
 .It ControlPath
 .It ControlPersist
-.It DynamicForward
-.It EnableEscapeCommandline
-.It EnableSSHKeysign
-.It EscapeChar
-.It ExitOnForwardFailure
-.It FingerprintHash
-.It ForkAfterAuthentication
-.It ForwardAgent
-.It ForwardX11
-.It ForwardX11Timeout
-.It ForwardX11Trusted
+.It GlobalKnownHostsFile
 .It GSSAPIAuthentication
 .It GSSAPIDelegateCredentials
-.It GatewayPorts
-.It GlobalKnownHostsFile
 .It HashKnownHosts
 .It Host
-.It HostKeyAlgorithms
-.It HostKeyAlias
 .It HostbasedAcceptedAlgorithms
 .It HostbasedAuthentication
+.It HostKeyAlgorithms
+.It HostKeyAlias
 .It Hostname
-.It IPQoS
 .It IdentitiesOnly
 .It IdentityAgent
 .It IdentityFile
-.It IgnoreUnknown
-.It Include
+.It IPQoS
 .It KbdInteractiveAuthentication
 .It KbdInteractiveDevices
 .It KexAlgorithms
 .It KnownHostsCommand
-.It LocalCommand
-.It LocalForward
 .It LogLevel
-.It LogVerbose
 .It MACs
 .It NoHostAuthenticationForLocalhost
 .It NumberOfPasswordPrompts
-.It ObscureKeystrokeTiming
-.It PKCS11Provider
 .It PasswordAuthentication
-.It PermitLocalCommand
-.It PermitRemoteOpen
+.It PKCS11Provider
 .It Port
 .It PreferredAuthentications
 .It ProxyCommand
 .It ProxyJump
-.It ProxyUseFdpass
 .It PubkeyAcceptedAlgorithms
 .It PubkeyAuthentication
 .It RekeyLimit
-.It RemoteCommand
-.It RemoteForward
-.It RequestTTY
 .It RequiredRSASize
-.It RevokedHostKeys
-.It SecurityKeyProvider
 .It SendEnv
-.It ServerAliveCountMax
 .It ServerAliveInterval
-.It SessionType
+.It ServerAliveCountMax
 .It SetEnv
-.It StdinNull
-.It StreamLocalBindMask
-.It StreamLocalBindUnlink
 .It StrictHostKeyChecking
-.It SyslogFacility
 .It TCPKeepAlive
-.It Tag
-.It Tunnel
-.It TunnelDevice
 .It UpdateHostKeys
 .It User
 .It UserKnownHostsFile
 .It VerifyHostKeyDNS
-.It VisualHostKey
-.It XAuthLocation
 .El
 .It Fl P Ar port
 Specifies the port to connect to on the remote host.

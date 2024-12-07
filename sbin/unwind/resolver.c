@@ -1,4 +1,4 @@
-/*	$OpenBSD: resolver.c,v 1.173 2024/11/21 13:35:20 claudio Exp $	*/
+/*	$OpenBSD: resolver.c,v 1.167 2024/06/29 17:25:56 florian Exp $	*/
 
 
 /*
@@ -415,9 +415,7 @@ resolver(int debug, int verbose)
 	if ((iev_main = malloc(sizeof(struct imsgev))) == NULL)
 		fatal(NULL);
 
-	if (imsgbuf_init(&iev_main->ibuf, 3) == -1)
-		fatal(NULL);
-	imsgbuf_allow_fdpass(&iev_main->ibuf);
+	imsg_init(&iev_main->ibuf, 3);
 	iev_main->handler = resolver_dispatch_main;
 
 	/* Setup event handlers. */
@@ -455,9 +453,9 @@ __dead void
 resolver_shutdown(void)
 {
 	/* Close pipes. */
-	imsgbuf_clear(&iev_frontend->ibuf);
+	msgbuf_clear(&iev_frontend->ibuf.w);
 	close(iev_frontend->ibuf.fd);
-	imsgbuf_clear(&iev_main->ibuf);
+	msgbuf_clear(&iev_main->ibuf.w);
 	close(iev_main->ibuf.fd);
 
 	config_clear(resolver_conf);
@@ -497,18 +495,16 @@ resolver_dispatch_frontend(int fd, short event, void *bula)
 	ibuf = &iev->ibuf;
 
 	if (event & EV_READ) {
-		if ((n = imsgbuf_read(ibuf)) == -1)
-			fatal("imsgbuf_read error");
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+			fatal("imsg_read error");
 		if (n == 0)	/* Connection closed. */
 			shut = 1;
 	}
 	if (event & EV_WRITE) {
-		if (imsgbuf_write(ibuf) == -1) {
-			if (errno == EPIPE)	/* Connection closed. */
-				shut = 1;
-			else
-				fatal("imsgbuf_write");
-		}
+		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
+			fatal("msgbuf_write");
+		if (n == 0)	/* Connection closed. */
+			shut = 1;
 	}
 
 	for (;;) {
@@ -635,18 +631,16 @@ resolver_dispatch_main(int fd, short event, void *bula)
 	ibuf = &iev->ibuf;
 
 	if (event & EV_READ) {
-		if ((n = imsgbuf_read(ibuf)) == -1)
-			fatal("imsgbuf_read error");
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+			fatal("imsg_read error");
 		if (n == 0)	/* Connection closed. */
 			shut = 1;
 	}
 	if (event & EV_WRITE) {
-		if (imsgbuf_write(ibuf) == -1) {
-			if (errno == EPIPE)	/* Connection closed. */
-				shut = 1;
-			else
-				fatal("imsgbuf_write");
-		}
+		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
+			fatal("msgbuf_write");
+		if (n == 0)	/* Connection closed. */
+			shut = 1;
 	}
 
 	for (;;) {
@@ -673,8 +667,7 @@ resolver_dispatch_main(int fd, short event, void *bula)
 			if (iev_frontend == NULL)
 				fatal(NULL);
 
-			if (imsgbuf_init(&iev_frontend->ibuf, fd) == -1)
-				fatal(NULL);
+			imsg_init(&iev_frontend->ibuf, fd);
 			iev_frontend->handler = resolver_dispatch_frontend;
 			iev_frontend->events = EV_READ;
 

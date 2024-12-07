@@ -1,4 +1,4 @@
-/*	$OpenBSD: if_mcx.c,v 1.117 2024/10/23 01:47:47 jsg Exp $ */
+/*	$OpenBSD: if_mcx.c,v 1.115 2024/05/24 06:02:53 jsg Exp $ */
 
 /*
  * Copyright (c) 2017 David Gwynne <dlg@openbsd.org>
@@ -918,6 +918,7 @@ struct mcx_cap_device {
 					0x08000000
 #define MCX_CAP_DEVICE_DC_CONNECT_CP	0x00040000
 #define MCX_CAP_DEVICE_DC_CNAK_DRACE	0x00020000
+#define MCX_CAP_DEVICE_DRAIN_SIGERR	0x00010000
 #define MCX_CAP_DEVICE_DRAIN_SIGERR	0x00010000
 #define MCX_CAP_DEVICE_CMDIF_CHECKSUM	0x0000c000
 #define MCX_CAP_DEVICE_SIGERR_QCE	0x00002000
@@ -2926,24 +2927,22 @@ mcx_attach(struct device *parent, struct device *self, void *aux)
 		goto teardown;
 	}
 
+	printf(", %s, address %s\n", intrstr,
+	    ether_sprintf(sc->sc_ac.ac_enaddr));
+
 	msix--; /* admin ops took one */
 	sc->sc_intrmap = intrmap_create(&sc->sc_dev, msix, MCX_MAX_QUEUES,
 	    INTRMAP_POWEROF2);
 	if (sc->sc_intrmap == NULL) {
-		printf(": unable to create interrupt map\n");
+		printf("%s: unable to create interrupt map\n", DEVNAME(sc));
 		goto teardown;
 	}
 	sc->sc_queues = mallocarray(intrmap_count(sc->sc_intrmap),
 	    sizeof(*sc->sc_queues), M_DEVBUF, M_WAITOK|M_ZERO);
 	if (sc->sc_queues == NULL) {
-		printf(": unable to create queues\n");
+		printf("%s: unable to create queues\n", DEVNAME(sc));
 		goto intrunmap;
 	}
-
-	printf(", %s, %d queue%s, address %s\n", intrstr,
-	    intrmap_count(sc->sc_intrmap),
-	    intrmap_count(sc->sc_intrmap) > 1 ? "s" : "",
-	    ether_sprintf(sc->sc_ac.ac_enaddr));
 
 	strlcpy(ifp->if_xname, DEVNAME(sc), IFNAMSIZ);
 	ifp->if_softc = sc;

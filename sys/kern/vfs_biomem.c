@@ -1,4 +1,4 @@
-/*	$OpenBSD: vfs_biomem.c,v 1.52 2024/11/05 17:28:31 mpi Exp $ */
+/*	$OpenBSD: vfs_biomem.c,v 1.51 2021/10/24 00:02:25 jsg Exp $ */
 
 /*
  * Copyright (c) 2007 Artur Grabowski <art@openbsd.org>
@@ -272,7 +272,7 @@ buf_alloc_pages(struct buf *bp, vsize_t size)
 		    UVM_PLA_NOWAIT | UVM_PLA_NOWAKE);
 		if (i == 0)
 			break;
-	} while	(bufbackoff(&dma_constraint, size) >= size);
+	} while	(bufbackoff(&dma_constraint, size) == 0);
 	if (i != 0)
 		i = uvm_pagealloc_multi(&bp->b_uobj, 0, size,
 		    UVM_PLA_WAITOK);
@@ -324,7 +324,6 @@ int
 buf_realloc_pages(struct buf *bp, struct uvm_constraint_range *where,
     int flags)
 {
-	vsize_t size;
 	vaddr_t va;
 	int dma;
   	int i, r;
@@ -346,8 +345,7 @@ buf_realloc_pages(struct buf *bp, struct uvm_constraint_range *where,
 		    bp->b_bufsize, UVM_PLA_NOWAIT | UVM_PLA_NOWAKE, where);
 		if (r == 0)
 			break;
-		size = atop(bp->b_bufsize);
-	} while	((bufbackoff(where, size) >= size));
+	} while	((bufbackoff(where, atop(bp->b_bufsize)) == 0));
 
 	/*
 	 * bufbackoff() failed, so there's no more we can do without

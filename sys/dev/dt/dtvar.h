@@ -1,4 +1,4 @@
-/*	$OpenBSD: dtvar.h,v 1.21 2024/11/26 10:28:27 mpi Exp $ */
+/*	$OpenBSD: dtvar.h,v 1.19 2024/04/06 11:18:02 mpi Exp $ */
 
 /*
  * Copyright (c) 2019 Martin Pieuchot <mpi@openbsd.org>
@@ -116,8 +116,6 @@ struct dtioc_req {
 struct dtioc_stat {
 	uint64_t		 dtst_readevt;	/* events read */
 	uint64_t		 dtst_dropevt;	/* events dropped */
-	uint64_t		 dtst_skiptick;	/* clock ticks skipped */
-	uint64_t		 dtst_recurevt;	/* recursive events */
 };
 
 struct dtioc_getaux {
@@ -165,6 +163,12 @@ struct dt_pcb {
 	SMR_SLIST_ENTRY(dt_pcb)	 dp_pnext;	/* [K,S] next PCB per probe */
 	TAILQ_ENTRY(dt_pcb)	 dp_snext;	/* [K] next PCB per softc */
 
+	/* Event states ring */
+	unsigned int		 dp_prod;	/* [m] read index */
+	unsigned int		 dp_cons;	/* [m] write index */
+	struct dt_evt		*dp_ring;	/* [m] ring of event states */
+	struct mutex		 dp_mtx;
+
 	struct dt_softc		*dp_sc;		/* [I] related softc */
 	struct dt_probe		*dp_dtp;	/* [I] related probe */
 	uint64_t		 dp_evtflags;	/* [I] event states to record */
@@ -173,6 +177,9 @@ struct dt_pcb {
 	struct clockintr	 dp_clockintr;	/* [D] profiling handle */
 	uint64_t		 dp_nsecs;	/* [I] profiling period */
 	struct cpu_info		*dp_cpu;	/* [I] on which CPU */
+
+	/* Counters */
+	uint64_t		 dp_dropevt;	/* [m] # dropped event */
 };
 
 TAILQ_HEAD(dt_pcb_list, dt_pcb);
@@ -181,7 +188,6 @@ struct dt_pcb	*dt_pcb_alloc(struct dt_probe *, struct dt_softc *);
 void		 dt_pcb_free(struct dt_pcb *);
 void		 dt_pcb_purge(struct dt_pcb_list *);
 
-void		 dt_pcb_ring_skiptick(struct dt_pcb *, unsigned int);
 struct dt_evt	*dt_pcb_ring_get(struct dt_pcb *, int);
 void		 dt_pcb_ring_consume(struct dt_pcb *, struct dt_evt *);
 

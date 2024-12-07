@@ -1,4 +1,4 @@
-/* $OpenBSD: window-customize.c,v 1.15 2024/10/04 19:16:13 nicm Exp $ */
+/* $OpenBSD: window-customize.c,v 1.14 2022/03/24 12:07:25 nicm Exp $ */
 
 /*
  * Copyright (c) 2020 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -101,7 +101,6 @@ struct window_customize_modedata {
 	struct mode_tree_data			 *data;
 	char					 *format;
 	int					  hide_global;
-	int					  prompt_flags;
 
 	struct window_customize_itemdata	**item_list;
 	u_int					  item_size;
@@ -886,8 +885,6 @@ window_customize_init(struct window_mode_entry *wme, struct cmd_find_state *fs,
 		data->format = xstrdup(WINDOW_CUSTOMIZE_DEFAULT_FORMAT);
 	else
 		data->format = xstrdup(args_get(args, 'F'));
-	if (args_has(args, 'y'))
-		data->prompt_flags = PROMPT_ACCEPT;
 
 	data->data = mode_tree_start(wp, args, window_customize_build,
 	    window_customize_draw, NULL, window_customize_menu,
@@ -1456,8 +1453,7 @@ window_customize_key(struct window_mode_entry *wme, struct client *c,
 		status_prompt_set(c, NULL, prompt, "",
 		    window_customize_change_current_callback,
 		    window_customize_free_callback, data,
-		    PROMPT_SINGLE|PROMPT_NOFORMAT|data->prompt_flags,
-		    PROMPT_TYPE_COMMAND);
+		    PROMPT_SINGLE|PROMPT_NOFORMAT, PROMPT_TYPE_COMMAND);
 		free(prompt);
 		break;
 	case 'D':
@@ -1470,8 +1466,7 @@ window_customize_key(struct window_mode_entry *wme, struct client *c,
 		status_prompt_set(c, NULL, prompt, "",
 		    window_customize_change_tagged_callback,
 		    window_customize_free_callback, data,
-		    PROMPT_SINGLE|PROMPT_NOFORMAT|data->prompt_flags,
-		    PROMPT_TYPE_COMMAND);
+		    PROMPT_SINGLE|PROMPT_NOFORMAT, PROMPT_TYPE_COMMAND);
 		free(prompt);
 		break;
 	case 'u':
@@ -1487,8 +1482,7 @@ window_customize_key(struct window_mode_entry *wme, struct client *c,
 		status_prompt_set(c, NULL, prompt, "",
 		    window_customize_change_current_callback,
 		    window_customize_free_callback, data,
-		    PROMPT_SINGLE|PROMPT_NOFORMAT|data->prompt_flags,
-		    PROMPT_TYPE_COMMAND);
+		    PROMPT_SINGLE|PROMPT_NOFORMAT, PROMPT_TYPE_COMMAND);
 		free(prompt);
 		break;
 	case 'U':
@@ -1501,8 +1495,7 @@ window_customize_key(struct window_mode_entry *wme, struct client *c,
 		status_prompt_set(c, NULL, prompt, "",
 		    window_customize_change_tagged_callback,
 		    window_customize_free_callback, data,
-		    PROMPT_SINGLE|PROMPT_NOFORMAT|data->prompt_flags,
-		    PROMPT_TYPE_COMMAND);
+		    PROMPT_SINGLE|PROMPT_NOFORMAT, PROMPT_TYPE_COMMAND);
 		free(prompt);
 		break;
 	case 'H':

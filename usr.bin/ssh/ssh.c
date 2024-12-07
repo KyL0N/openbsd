@@ -1,4 +1,4 @@
-/* $OpenBSD: ssh.c,v 1.602 2024/12/06 16:21:48 djm Exp $ */
+/* $OpenBSD: ssh.c,v 1.600 2024/01/11 01:45:36 djm Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -939,7 +939,7 @@ main(int ac, char **av)
 			options.log_level = SYSLOG_LEVEL_QUIET;
 			break;
 		case 'e':
-			if (strlen(optarg) == 2 && optarg[0] == '^' &&
+			if (optarg[0] == '^' && optarg[2] == 0 &&
 			    (u_char) optarg[1] >= 64 &&
 			    (u_char) optarg[1] < 128)
 				options.escape_char = (u_char) optarg[1] & 31;
@@ -1471,13 +1471,6 @@ main(int ac, char **av)
 			if (options.exit_on_forward_failure)
 				cleanup_exit(255);
 		}
-	}
-
-	if (options.version_addendum != NULL) {
-		cp = default_client_percent_dollar_expand(
-		    options.version_addendum, cinfo);
-		free(options.version_addendum);
-		options.version_addendum = cp;
 	}
 
 	if (options.num_system_hostfiles > 0 &&

@@ -1,4 +1,4 @@
-/*	$OpenBSD: parser.c,v 1.148 2024/11/21 13:32:27 claudio Exp $ */
+/*	$OpenBSD: parser.c,v 1.143 2024/08/29 13:46:28 tb Exp $ */
 /*
  * Copyright (c) 2019 Claudio Jeker <claudio@openbsd.org>
  * Copyright (c) 2019 Kristaps Dzonsons <kristaps@bsd.lv>
@@ -39,8 +39,6 @@
 #include "extern.h"
 
 extern int certid;
-
-extern BN_CTX		*bn_ctx;
 
 static X509_STORE_CTX	*ctx;
 static struct auth_tree	 auths = RB_INITIALIZER(&auths);
@@ -453,14 +451,6 @@ proc_parser_mft_pre(struct entity *entp, char *file, struct crl **crl,
 		    "#%s were recycled", file, (long long)mft->thisupdate,
 		    mft->seqnum);
 		goto err;
-	}
-
-	if (seqnum_cmp > 0) {
-		if (mft_seqnum_gap_present(mft, cached_mft)) {
-			mft->seqnum_gap = 1;
-			warnx("%s: seqnum gap detected #%s -> #%s", file,
-			    cached_mft->seqnum, mft->seqnum);
-		}
 	}
 
 	return mft;
@@ -1046,7 +1036,7 @@ void
 proc_parser(int fd)
 {
 	struct entityq	 q;
-	struct msgbuf	*msgq;
+	struct msgbuf	 msgq;
 	struct pollfd	 pfd;
 	struct entity	*entp;
 	struct ibuf	*b, *inbuf = NULL;
@@ -1065,20 +1055,17 @@ proc_parser(int fd)
 
 	if ((ctx = X509_STORE_CTX_new()) == NULL)
 		err(1, "X509_STORE_CTX_new");
-	if ((bn_ctx = BN_CTX_new()) == NULL)
-		err(1, "BN_CTX_new");
 
 	TAILQ_INIT(&q);
 
-	if ((msgq = msgbuf_new_reader(sizeof(size_t), io_parse_hdr, NULL)) ==
-	    NULL)
-		err(1, NULL);
+	msgbuf_init(&msgq);
+	msgq.fd = fd;
 
 	pfd.fd = fd;
 
 	for (;;) {
 		pfd.events = POLLIN;
-		if (msgbuf_queuelen(msgq) > 0)
+		if (msgbuf_queuelen(&msgq) > 0)
 			pfd.events |= POLLOUT;
 
 		if (poll(&pfd, 1, INFTIM) == -1) {
@@ -1095,13 +1082,8 @@ proc_parser(int fd)
 			break;
 
 		if ((pfd.revents & POLLIN)) {
-			switch (ibuf_read(fd, msgq)) {
-			case -1:
-				err(1, "ibuf_read");
-			case 0:
-				errx(1, "ibuf_read: connection closed");
-			}
-			while ((b = io_buf_get(msgq)) != NULL) {
+			b = io_buf_read(fd, &inbuf);
+			if (b != NULL) {
 				entp = calloc(1, sizeof(struct entity));
 				if (entp == NULL)
 					err(1, NULL);
@@ -1112,15 +1094,15 @@ proc_parser(int fd)
 		}
 
 		if (pfd.revents & POLLOUT) {
-			if (msgbuf_write(fd, msgq) == -1) {
-				if (errno == EPIPE)
-					errx(1, "write: connection closed");
-				else
-					err(1, "write");
+			switch (msgbuf_write(&msgq)) {
+			case 0:
+				errx(1, "write: connection closed");
+			case -1:
+				err(1, "write");
 			}
 		}
 
-		parse_entity(&q, msgq);
+		parse_entity(&q, &msgq);
 	}
 
 	while ((entp = TAILQ_FIRST(&q)) != NULL) {
@@ -1132,9 +1114,8 @@ proc_parser(int fd)
 	crl_tree_free(&crlt);
 
 	X509_STORE_CTX_free(ctx);
-	BN_CTX_free(bn_ctx);
+	msgbuf_clear(&msgq);
 
-	msgbuf_free(msgq);
 	ibuf_free(inbuf);
 
 	if (certid > CERTID_MAX)

@@ -1,4 +1,4 @@
-/*	$OpenBSD: vmd.c,v 1.163 2024/11/06 14:26:20 bluhm Exp $	*/
+/*	$OpenBSD: vmd.c,v 1.160 2024/09/11 15:42:52 bluhm Exp $	*/
 
 /*
  * Copyright (c) 2015 Reyk Floeter <reyk@openbsd.org>
@@ -18,6 +18,7 @@
 
 #include <sys/types.h>
 #include <sys/queue.h>
+#include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/tty.h>
@@ -27,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <termios.h>
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
@@ -842,11 +844,11 @@ main(int argc, char **argv)
 	if (!env->vmd_noaction)
 		proc_connect(ps);
 
-	env->vmd_psp_fd = -1;
-#ifdef __amd64__
-	if (env->vmd_noaction == 0 && proc_id == PROC_PARENT)
-		psp_setup();
-#endif
+	if (env->vmd_noaction == 0 && proc_id == PROC_PARENT) {
+		env->vmd_psp_fd = open(PSP_NODE, O_RDWR);
+		if (env->vmd_psp_fd == -1)
+			log_debug("%s: failed to open %s", __func__, PSP_NODE);
+	}
 
 	if (vmd_configure() == -1)
 		fatalx("configuration failed");

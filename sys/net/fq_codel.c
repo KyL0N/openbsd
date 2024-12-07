@@ -1,4 +1,4 @@
-/* $OpenBSD: fq_codel.c,v 1.16 2024/10/29 23:25:45 dlg Exp $ */
+/* $OpenBSD: fq_codel.c,v 1.15 2022/01/02 22:36:03 jsg Exp $ */
 
 /*
  * Copyright (c) 2017 Mike Belopuhov
@@ -292,6 +292,15 @@ codel_freeparams(struct codel_params *cp)
 	cp->intervals = NULL;
 }
 
+static inline void
+codel_gettime(int64_t *now)
+{
+	struct timespec tv;
+
+	nanouptime(&tv);
+	*now = tv.tv_sec * 1000000000LL + tv.tv_nsec;
+}
+
 static inline unsigned int
 codel_backlog(struct codel *cd)
 {
@@ -534,7 +543,7 @@ fqcodel_enq(struct fqcodel *fqc, struct mbuf *m)
 	if (flow == NULL)
 		return (m);
 
-	now = nsecuptime();
+	codel_gettime(&now);
 	codel_enqueue(&flow->cd, now, m);
 	fqc->qlength++;
 
@@ -641,7 +650,7 @@ fqcodel_deq_begin(struct fqcodel *fqc, void **cookiep,
 	if ((fqc->flags & FQCF_FIXED_QUANTUM) == 0)
 		fqc->quantum = fqc->ifp->if_mtu + max_linkhdr;
 
-	now = nsecuptime();
+	codel_gettime(&now);
 
 	for (flow = first_flow(fqc, &fq); flow != NULL;
 	     flow = next_flow(fqc, flow, &fq)) {

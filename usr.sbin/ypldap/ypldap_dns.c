@@ -1,4 +1,4 @@
-/*	$OpenBSD: ypldap_dns.c,v 1.21 2024/11/21 13:38:15 claudio Exp $ */
+/*	$OpenBSD: ypldap_dns.c,v 1.16 2023/07/18 13:06:33 claudio Exp $ */
 
 /*
  * Copyright (c) 2003-2008 Henning Brauer <henning@openbsd.org>
@@ -115,8 +115,7 @@ ypldap_dns(int pipe_ntp[2], struct passwd *pw)
 
 	env.sc_iev->events = EV_READ;
 	env.sc_iev->data = &env;
-	if (imsgbuf_init(&env.sc_iev->ibuf, pipe_ntp[1]) == -1)
-		fatal(NULL);
+	imsg_init(&env.sc_iev->ibuf, pipe_ntp[1]);
 	env.sc_iev->handler = dns_dispatch_imsg;
 	event_set(&env.sc_iev->ev, env.sc_iev->ibuf.fd, env.sc_iev->events,
 	    env.sc_iev->handler, &env);
@@ -147,18 +146,17 @@ dns_dispatch_imsg(int fd, short events, void *p)
 		fatalx("unknown event");
 
 	if (events & EV_READ) {
-		if ((n = imsgbuf_read(ibuf)) == -1)
-			fatal("imsgbuf_read error");
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+			fatal("imsg_read error");
 		if (n == 0)
 			shut = 1;
 	}
 	if (events & EV_WRITE) {
-		if (imsgbuf_write(ibuf) == -1) {
-			if (errno == EPIPE)	/* connection closed */
-				shut = 1;
-			else
-				fatal("imsgbuf_write");
-		}
+		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
+			fatal("msgbuf_write");
+		if (n == 0)
+			shut = 1;
+		goto done;
 	}
 
 	for (;;) {
@@ -200,6 +198,7 @@ dns_dispatch_imsg(int fd, short events, void *p)
 		imsg_free(&imsg);
 	}
 
+done:
 	if (!shut)
 		imsg_event_add(iev);
 	else {

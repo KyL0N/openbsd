@@ -1,4 +1,4 @@
-/*	$OpenBSD: stfpcie.c,v 1.4 2024/10/17 01:57:18 jsg Exp $	*/
+/*	$OpenBSD: stfpcie.c,v 1.3 2023/11/27 13:42:19 jsg Exp $	*/
 /*
  * Copyright (c) 2023 Mark Kettenis <kettenis@openbsd.org>
  *
@@ -26,6 +26,7 @@
 #include <machine/bus.h>
 #include <machine/fdt.h>
 
+#include <dev/pci/pcidevs.h>
 #include <dev/pci/pcireg.h>
 #include <dev/pci/pcivar.h>
 
@@ -34,6 +35,7 @@
 #include <dev/ofw/ofw_gpio.h>
 #include <dev/ofw/ofw_misc.h>
 #include <dev/ofw/ofw_pinctrl.h>
+#include <dev/ofw/ofw_power.h>
 #include <dev/ofw/fdt.h>
 
 /*

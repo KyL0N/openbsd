@@ -1,4 +1,4 @@
-/* $OpenBSD: cmd-parse.y,v 1.52 2024/11/18 08:29:35 nicm Exp $ */
+/* $OpenBSD: cmd-parse.y,v 1.51 2024/08/04 09:42:23 nicm Exp $ */
 
 /*
  * Copyright (c) 2019 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -223,16 +223,9 @@ assignment	: EQUALS
 		{
 			struct cmd_parse_state	*ps = &parse_state;
 			int			 flags = ps->input->flags;
-			int			 flag = 1;
-			struct cmd_parse_scope	*scope;
 
-			if (ps->scope != NULL) {
-				flag = ps->scope->flag;
-				TAILQ_FOREACH(scope, &ps->stack, entry)
-					flag = flag && scope->flag;
-			}
-
-			if ((~flags & CMD_PARSE_PARSEONLY) && flag)
+			if ((~flags & CMD_PARSE_PARSEONLY) &&
+			    (ps->scope == NULL || ps->scope->flag))
 				environ_put(global_environ, $1, 0);
 			free($1);
 		}
@@ -241,16 +234,9 @@ hidden_assignment : HIDDEN EQUALS
 		{
 			struct cmd_parse_state	*ps = &parse_state;
 			int			 flags = ps->input->flags;
-			int			 flag = 1;
-			struct cmd_parse_scope	*scope;
 
-			if (ps->scope != NULL) {
-				flag = ps->scope->flag;
-				TAILQ_FOREACH(scope, &ps->stack, entry)
-					flag = flag && scope->flag;
-			}
-
-			if ((~flags & CMD_PARSE_PARSEONLY) && flag)
+			if ((~flags & CMD_PARSE_PARSEONLY) &&
+			    (ps->scope == NULL || ps->scope->flag))
 				environ_put(global_environ, $2, ENVIRON_HIDDEN);
 			free($2);
 		}

@@ -1,4 +1,4 @@
-/*	$OpenBSD: vfs_subr.c,v 1.325 2024/10/31 10:06:51 mvs Exp $	*/
+/*	$OpenBSD: vfs_subr.c,v 1.322 2024/07/13 14:37:55 beck Exp $	*/
 /*	$NetBSD: vfs_subr.c,v 1.53 1996/04/22 01:39:13 christos Exp $	*/
 
 /*
@@ -72,11 +72,6 @@
 
 #include "softraid.h"
 
-/*
- * Locks used to protect data:
- *	a	atomic
- */
-
 void sr_quiesce(void);
 
 enum vtype iftovt_tab[16] = {
@@ -89,8 +84,8 @@ int	vttoif_tab[9] = {
 	S_IFSOCK, S_IFIFO, S_IFMT,
 };
 
-int prtactive = 0;	/* 1 => print out reclaim of active vnodes */
-int suid_clear = 1;	/* [a] 1 => clear SUID / SGID on owner change */
+int prtactive = 0;		/* 1 => print out reclaim of active vnodes */
+int suid_clear = 1;		/* 1 => clear SUID / SGID on owner change */
 
 /*
  * Insq/Remq for the vnode usage lists.
@@ -251,7 +246,10 @@ vfs_unbusy(struct mount *mp)
 int
 vfs_isbusy(struct mount *mp)
 {
-	return (rw_status(&mp->mnt_lock) != 0);
+	if (RWLOCK_OWNER(&mp->mnt_lock) > 0)
+		return (1);
+	else
+		return (0);
 }
 
 /*
@@ -984,7 +982,7 @@ vflush_vnode(struct vnode *vp, void *arg)
 	if (empty)
 		return (0);
 
-#if defined(DEBUG_SYSCTL) && (defined(DEBUG) || defined(DIAGNOSTIC))
+#ifdef DEBUG_SYSCTL
 	if (busyprt)
 		vprint("vflush: busy vnode", vp);
 #endif

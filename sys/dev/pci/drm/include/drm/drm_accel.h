@@ -5,8 +5,6 @@
 
 #include <drm/drm_file.h>
 
-#define ACCEL_MAX_MINORS	256
-
 static inline int
 accel_minor_alloc(void)
 {

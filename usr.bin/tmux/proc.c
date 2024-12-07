@@ -1,4 +1,4 @@
-/* $OpenBSD: proc.c,v 1.30 2024/11/21 13:35:20 claudio Exp $ */
+/* $OpenBSD: proc.c,v 1.24 2024/02/13 08:10:23 nicm Exp $ */
 
 /*
  * Copyright (c) 2015 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -77,7 +77,8 @@ proc_event_cb(__unused int fd, short events, void *arg)
 	struct imsg	 imsg;
 
 	if (!(peer->flags & PEER_BAD) && (events & EV_READ)) {
-		if (imsgbuf_read(&peer->ibuf) != 1) {
+		if (((n = imsg_read(&peer->ibuf)) == -1 && errno != EAGAIN) ||
+		    n == 0) {
 			peer->dispatchcb(NULL, peer->arg);
 			return;
 		}
@@ -104,13 +105,13 @@ proc_event_cb(__unused int fd, short events, void *arg)
 	}
 
 	if (events & EV_WRITE) {
-		if (imsgbuf_write(&peer->ibuf) == -1) {
+		if (msgbuf_write(&peer->ibuf.w) <= 0 && errno != EAGAIN) {
 			peer->dispatchcb(NULL, peer->arg);
 			return;
 		}
 	}
 
-	if ((peer->flags & PEER_BAD) && imsgbuf_queuelen(&peer->ibuf) == 0) {
+	if ((peer->flags & PEER_BAD) && peer->ibuf.w.queued == 0) {
 		peer->dispatchcb(NULL, peer->arg);
 		return;
 	}
@@ -151,7 +152,7 @@ proc_update_event(struct tmuxpeer *peer)
 	event_del(&peer->event);
 
 	events = EV_READ;
-	if (imsgbuf_queuelen(&peer->ibuf) > 0)
+	if (peer->ibuf.w.queued > 0)
 		events |= EV_WRITE;
 	event_set(&peer->event, peer->ibuf.fd, events, proc_event_cb, peer);
 
@@ -217,7 +218,7 @@ proc_exit(struct tmuxproc *tp)
 	struct tmuxpeer	*peer;
 
 	TAILQ_FOREACH(peer, &tp->peers, entry)
-	    imsgbuf_flush(&peer->ibuf);
+	    imsg_flush(&peer->ibuf);
 	tp->exit = 1;
 }
 
@@ -305,9 +306,7 @@ proc_add_peer(struct tmuxproc *tp, int fd,
 	peer->dispatchcb = dispatchcb;
 	peer->arg = arg;
 
-	if (imsgbuf_init(&peer->ibuf, fd) == -1)
-		fatal("imsgbuf_init");
-	imsgbuf_allow_fdpass(&peer->ibuf);
+	imsg_init(&peer->ibuf, fd);
 	event_set(&peer->event, fd, EV_READ, proc_event_cb, peer);
 
 	if (getpeereid(fd, &peer->uid, &gid) != 0)
@@ -327,7 +326,7 @@ proc_remove_peer(struct tmuxpeer *peer)
 	log_debug("remove peer %p", peer);
 
 	event_del(&peer->event);
-	imsgbuf_clear(&peer->ibuf);
+	imsg_clear(&peer->ibuf);
 
 	close(peer->ibuf.fd);
 	free(peer);
@@ -342,7 +341,7 @@ proc_kill_peer(struct tmuxpeer *peer)
 void
 proc_flush_peer(struct tmuxpeer *peer)
 {
-	imsgbuf_flush(&peer->ibuf);
+	imsg_flush(&peer->ibuf);
 }
 
 void

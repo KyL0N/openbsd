@@ -2,7 +2,7 @@
  * THIS FILE AUTOMATICALLY GENERATED.  DO NOT EDIT.
  *
  * generated from:
- *	OpenBSD: pcidevs,v 1.2094 2024/11/09 10:23:06 miod Exp 
+ *	OpenBSD: pcidevs,v 1.2090 2024/09/23 03:59:03 jsg Exp 
  */
 
 /*	$NetBSD: pcidevs,v 1.30 1997/06/24 06:20:24 thorpej Exp $	*/
@@ -2645,107 +2645,35 @@ static const struct pci_known_product pci_known_products[] = {
 	},
 	{
 	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_EMAG_PCIE_1,
-	    "eMAG PCIe",
+	    "eMAG PCIE",
 	},
 	{
 	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_EMAG_PCIE_2,
-	    "eMAG PCIe",
+	    "eMAG PCIE",
 	},
 	{
 	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_EMAG_PCIE_3,
-	    "eMAG PCIe",
+	    "eMAG PCIE",
 	},
 	{
 	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_EMAG_PCIE_4,
-	    "eMAG PCIe",
+	    "eMAG PCIE",
 	},
 	{
 	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_EMAG_PCIE_5,
-	    "eMAG PCIe",
+	    "eMAG PCIE",
 	},
 	{
 	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_EMAG_PCIE_6,
-	    "eMAG PCIe",
+	    "eMAG PCIE",
 	},
 	{
 	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_EMAG_PCIE_7,
-	    "eMAG PCIe",
+	    "eMAG PCIE",
 	},
 	{
 	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_EMAG_PCIE_8,
-	    "eMAG PCIe",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_A,
-	    "Altra PCIe Root",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_A0,
-	    "Altra PCIe",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_A1,
-	    "Altra PCIe",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_A2,
-	    "Altra PCIe",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_A3,
-	    "Altra PCIe",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_A4,
-	    "Altra PCIe",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_A5,
-	    "Altra PCIe",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_A6,
-	    "Altra PCIe",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_A7,
-	    "Altra PCIe",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_B,
-	    "Altra PCIe Root",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_B0,
-	    "Altra PCIe",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_B1,
-	    "Altra PCIe",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_B2,
-	    "Altra PCIe",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_B3,
-	    "Altra PCIe",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_B4,
-	    "Altra PCIe",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_B5,
-	    "Altra PCIe",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_B6,
-	    "Altra PCIe",
-	},
-	{
-	    PCI_VENDOR_AMPERE, PCI_PRODUCT_AMPERE_ALTRA_PCIE_B7,
-	    "Altra PCIe",
+	    "eMAG PCIE",
 	},
 	{
 	    PCI_VENDOR_ANTARES, PCI_PRODUCT_ANTARES_TC9021,
@@ -10460,10 +10388,6 @@ static const struct pci_known_product pci_known_products[] = {
 	    "XR17C158",
 	},
 	{
-	    PCI_VENDOR_EXAR, PCI_PRODUCT_EXAR_XR17V352,
-	    "XR17V352",
-	},
-	{
 	    PCI_VENDOR_EXAR, PCI_PRODUCT_EXAR_XR17V354,
 	    "XR17V354",
 	},
@@ -14062,14 +13986,6 @@ static const struct pci_known_product pci_known_products[] = {
 	{
 	    PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_XXV710_25G_SFP28,
 	    "XXV710 SFP28",
-	},
-	{
-	    PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_E810_XXV_QSFP,
-	    "E810 XXV QSFP",
-	},
-	{
-	    PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_E810_XXV_SFP,
-	    "E810 XXV SFP",
 	},
 	{
 	    PCI_VENDOR_INTEL, PCI_PRODUCT_INTEL_I218_LM_2,
@@ -27002,10 +26918,6 @@ static const struct pci_known_product pci_known_products[] = {
 	{
 	    PCI_VENDOR_KINGSTON, PCI_PRODUCT_KINGSTON_KC3000,
 	    "KC3000",
-	},
-	{
-	    PCI_VENDOR_KINGSTON, PCI_PRODUCT_KINGSTON_SNV2S,
-	    "SNV2S",
 	},
 	{
 	    PCI_VENDOR_KINGSTON, PCI_PRODUCT_KINGSTON_NV2,

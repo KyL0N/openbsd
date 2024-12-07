@@ -1,4 +1,4 @@
-/*	$OpenBSD: ccl.c,v 1.10 2024/11/09 18:03:44 op Exp $	*/
+/*	$OpenBSD: ccl.c,v 1.9 2022/12/26 19:16:01 jmc Exp $	*/
 
 /* ccl - routines for character classes */
 
@@ -55,7 +55,9 @@ ccl_contains(const int cclp, const int ch)
 /* ccladd - add a single character to a ccl */
 
 void 
-ccladd(int cclp, int ch)
+ccladd(cclp, ch)
+	int cclp;
+	int ch;
 {
 	int ind, len, newpos, i;
 
@@ -188,7 +190,7 @@ ccl_set_union(int a, int b)
 /* cclinit - return an empty ccl */
 
 int 
-cclinit(void)
+cclinit()
 {
 	if (++lastccl >= current_maxccls) {
 		current_maxccls += MAX_CCLS_INCREMENT;
@@ -229,7 +231,8 @@ cclinit(void)
 /* cclnegate - negate the given ccl */
 
 void 
-cclnegate(int cclp)
+cclnegate(cclp)
+	int cclp;
 {
 	cclng[cclp] = 1;
 	ccl_has_nl[cclp] = !ccl_has_nl[cclp];
@@ -244,7 +247,9 @@ cclnegate(int cclp)
  */
 
 void 
-list_character_set(FILE *file, int cset[])
+list_character_set(file, cset)
+	FILE *file;
+	int cset[];
 {
 	int i;
 

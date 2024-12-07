@@ -1,4 +1,4 @@
-/*	$OpenBSD: if_wg.c,v 1.39 2024/10/31 12:33:11 claudio Exp $ */
+/*	$OpenBSD: if_wg.c,v 1.38 2024/04/09 12:53:08 claudio Exp $ */
 
 /*
  * Copyright (C) 2015-2020 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
@@ -860,15 +860,11 @@ wg_send_buf(struct wg_softc *sc, struct wg_endpoint *e, uint8_t *buf,
 {
 	struct mbuf	*m;
 	int		 ret = 0;
-	size_t		 mlen = len + max_hdr;
 
 retry:
 	m = m_gethdr(M_WAIT, MT_DATA);
-	if (mlen > MHLEN)
-		MCLGETL(m, M_WAIT, mlen);
-	m_align(m, len);
-	m->m_pkthdr.len = m->m_len = len;
-	memcpy(mtod(m, void *), buf, len);
+	m->m_len = 0;
+	m_copyback(m, 0, len, buf, M_WAIT);
 
 	/* As we're sending a handshake packet here, we want high priority */
 	m->m_pkthdr.pf.prio = IFQ_MAXPRIO;
@@ -1308,6 +1304,9 @@ wg_send_keepalive(void *_peer)
 		return;
 	}
 
+	m->m_len = 0;
+	m_calchdrlen(m);
+
 	t->t_peer = peer;
 	t->t_mbuf = NULL;
 	t->t_done = 0;
@@ -1509,10 +1508,9 @@ wg_encap(struct wg_softc *sc, struct mbuf *m)
 	t = wg_tag_get(m);
 	peer = t->t_peer;
 
-	plaintext_len = WG_PKT_WITH_PADDING(m->m_pkthdr.len);
+	plaintext_len = min(WG_PKT_WITH_PADDING(m->m_pkthdr.len), t->t_mtu);
 	padding_len = plaintext_len - m->m_pkthdr.len;
-	out_len = sizeof(struct wg_pkt_data) + plaintext_len +
-	    NOISE_AUTHTAG_LEN;
+	out_len = sizeof(struct wg_pkt_data) + plaintext_len + NOISE_AUTHTAG_LEN;
 
 	/*
 	 * For the time being we allocate a new packet with sufficient size to
@@ -1524,9 +1522,8 @@ wg_encap(struct wg_softc *sc, struct mbuf *m)
 	 * noise_remote_encrypt about mbufs, but we would need to sort out the
 	 * p_encap_queue situation first.
 	 */
-	if ((mc = m_clget(NULL, M_NOWAIT, out_len + max_hdr)) == NULL)
+	if ((mc = m_clget(NULL, M_NOWAIT, out_len)) == NULL)
 		goto error;
-	m_align(mc, out_len);
 
 	data = mtod(mc, struct wg_pkt_data *);
 	m_copydata(m, 0, m->m_pkthdr.len, data->buf);
@@ -1563,7 +1560,8 @@ wg_encap(struct wg_softc *sc, struct mbuf *m)
 
 	mc->m_pkthdr.ph_loopcnt = m->m_pkthdr.ph_loopcnt;
 	mc->m_flags &= ~(M_MCAST | M_BCAST);
-	mc->m_pkthdr.len = mc->m_len = out_len;
+	mc->m_len = out_len;
+	m_calchdrlen(mc);
 
 	/*
 	 * We would count ifc_opackets, ifc_obytes of m here, except if_snd

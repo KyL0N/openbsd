@@ -1,4 +1,4 @@
-/* $OpenBSD: input-keys.c,v 1.105 2024/12/06 09:07:40 nicm Exp $ */
+/* $OpenBSD: input-keys.c,v 1.98 2024/08/26 07:45:05 nicm Exp $ */
 
 /*
  * Copyright (c) 2007 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -499,12 +499,9 @@ input_key_vt10x(struct bufferevent *bev, key_code key)
 		return (0);
 	}
 
-	/*
-	 * Prevent TAB, CR and LF from being swallowed by the C0 remapping
-	 * logic.
-	 */
+	/* Prevent TAB and RET from being swallowed by C0 remapping logic. */
 	onlykey = key & KEYC_MASK_KEY;
-	if (onlykey == '\r' || onlykey == '\n' || onlykey == '\t')
+	if (onlykey == '\r' || onlykey == '\t')
 		key &= ~KEYC_CTRL;
 
 	/*
@@ -543,22 +540,25 @@ input_key_mode1(struct bufferevent *bev, key_code key)
 
 	log_debug("%s: key in %llx", __func__, key);
 
-	/* A regular or shifted key + Meta. */
-	if ((key & (KEYC_CTRL | KEYC_META)) == KEYC_META)
-		return (input_key_vt10x(bev, key));
-
 	/*
 	 * As per
 	 * https://invisible-island.net/xterm/modified-keys-us-pc105.html.
 	 */
 	onlykey = key & KEYC_MASK_KEY;
-	if ((key & KEYC_CTRL) &&
+	if ((key & (KEYC_META | KEYC_CTRL)) == KEYC_CTRL &&
 	    (onlykey == ' ' ||
 	     onlykey == '/' ||
 	     onlykey == '@' ||
 	     onlykey == '^' ||
 	     (onlykey >= '2' && onlykey <= '8') ||
 	     (onlykey >= '@' && onlykey <= '~')))
+		return (input_key_vt10x(bev, key));
+
+	/*
+	 * A regular key + Meta. In the absence of a standard to back this, we
+	 * mimic what iTerm 2 does.
+	 */
+	if ((key & (KEYC_CTRL | KEYC_META)) == KEYC_META)
 		return (input_key_vt10x(bev, key));
 
 	return (-1);
@@ -586,12 +586,9 @@ input_key(struct screen *s, struct bufferevent *bev, key_code key)
 	/* Is this backspace? */
 	if ((key & KEYC_MASK_KEY) == KEYC_BSPACE) {
 		newkey = options_get_number(global_options, "backspace");
-		if (newkey == KEYC_BSPACE)
-			newkey = '\b';
- 		newkey |= (key & (KEYC_MASK_FLAGS|KEYC_MASK_MODIFIERS));
-		log_debug("%s: key 0x%llx is backspace -> 0x%llx", __func__, key,
-		    newkey);
-		key = newkey;
+		if (newkey >= 0x7f)
+			newkey = '\177';
+		key = newkey|(key & (KEYC_MASK_MODIFIERS|KEYC_MASK_FLAGS));
 	}
 
 	/* Is this backtab? */
@@ -613,7 +610,6 @@ input_key(struct screen *s, struct bufferevent *bev, key_code key)
 	if (!(key & ~KEYC_MASK_KEY)) {
 		if (key == C0_HT ||
 		    key == C0_CR ||
-		    key == C0_BS ||
 		    key == C0_ESC ||
 		    (key >= 0x20 && key <= 0x7f)) {
 			ud.data[0] = key;
@@ -646,7 +642,8 @@ input_key(struct screen *s, struct bufferevent *bev, key_code key)
 	if (ike != NULL) {
 		log_debug("%s: found key 0x%llx: \"%s\"", __func__, key,
 		    ike->data);
-		if (KEYC_IS_PASTE(key) && (~s->mode & MODE_BRACKETPASTE))
+		if ((key == KEYC_PASTE_START || key == KEYC_PASTE_END) &&
+		    (~s->mode & MODE_BRACKETPASTE))
 			return (0);
 		if ((key & KEYC_META) && (~key & KEYC_IMPLIED_META))
 			input_key_write(__func__, bev, "\033", 1);

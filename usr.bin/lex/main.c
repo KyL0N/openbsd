@@ -1,4 +1,4 @@
-/*	$OpenBSD: main.c,v 1.30 2024/11/09 18:03:44 op Exp $	*/
+/*	$OpenBSD: main.c,v 1.29 2022/12/26 19:16:01 jmc Exp $	*/
 
 /* flex - tool to generate fast lexical analyzers */
 
@@ -137,7 +137,9 @@ int flex_main PROTO((int argc, char *argv[]));
 int main PROTO((int argc, char *argv[]));
 
 int
-flex_main(int argc, char *argv[])
+flex_main(argc, argv)
+	int argc;
+	char *argv[];
 {
 	int i, exit_status, child_status;
 
@@ -200,7 +202,9 @@ flex_main(int argc, char *argv[])
 
 /* Wrapper around flex_main, so flex_main can be built as a library. */
 int
-main(int argc, char *argv[])
+main(argc, argv)
+	int argc;
+	char *argv[];
 {
 #if ENABLE_NLS
 #if HAVE_LOCALE_H
@@ -222,7 +226,7 @@ main(int argc, char *argv[])
 /* check_options - check user-specified options */
 
 void
-check_options(void)
+check_options()
 {
 	int i;
 
@@ -469,7 +473,9 @@ check_options(void)
  */
 
 void
-flexend(int exit_status)
+flexend(exit_status)
+	int exit_status;
+
 {
 	static int called_before = -1;	/* prevent infinite recursion. */
 	int tblsiz;
@@ -898,7 +904,9 @@ flexend(int exit_status)
 /* flexinit - initialize flex */
 
 void
-flexinit(int argc, char *argv[])
+flexinit(argc, argv)
+	int argc;
+	char **argv;
 {
 	int i, sawcmpflag, rv, optind;
 	char *arg;
@@ -1419,7 +1427,7 @@ flexinit(int argc, char *argv[])
 /* readin - read in the rules section of the input file(s) */
 
 void
-readin(void)
+readin()
 {
 	static char yy_stdinit[] = "FILE *yyin = stdin, *yyout = stdout;";
 	static char yy_nostdinit[] =
@@ -1645,7 +1653,7 @@ readin(void)
 /* set_up_initial_allocations - allocate memory for internal tables */
 
 void
-set_up_initial_allocations(void)
+set_up_initial_allocations()
 {
 	maximum_mns = (long_align ? MAXIMUM_MNS_LONG : MAXIMUM_MNS);
 	current_mns = INITIAL_MNS;
@@ -1706,7 +1714,9 @@ set_up_initial_allocations(void)
 /* extracts basename from path, optionally stripping the extension "\.*"
  * (same concept as /bin/sh `basename`, but different handling of extension). */
 static char *
-basename2(char *path, int strip_ext)
+basename2(path, strip_ext)
+	char *path;
+	int strip_ext;		/* boolean */
 {
 	char *b, *e = 0;
 

@@ -109,9 +109,9 @@ $code=<<___;
 .machine "any"
 .text
 
-.globl	.bn_mul_mont
+.globl	.bn_mul_mont_int
 .align	4
-.bn_mul_mont:
+.bn_mul_mont_int:
 	cmpwi	$num,4
 	mr	$rp,r3		; $rp is reassigned
 	li	r3,0

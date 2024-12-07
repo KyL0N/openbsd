@@ -1,4 +1,4 @@
-/* $OpenBSD: process_machdep.c,v 1.9 2024/10/14 12:02:16 jsg Exp $ */
+/* $OpenBSD: process_machdep.c,v 1.8 2023/06/10 19:30:48 kettenis Exp $ */
 /*
  * Copyright (c) 2014 Patrick Wildt <patrick@blueri.se>
  *
@@ -48,7 +48,6 @@
 #include <machine/fpu.h>
 #include <machine/pcb.h>
 #include <machine/reg.h>
-#include <machine/vmparam.h>
 
 #include <arm64/armreg.h>
 

@@ -1,4 +1,4 @@
-#	$OpenBSD: genassym.sh,v 1.15 2024/10/07 15:41:46 miod Exp $
+#	$OpenBSD: genassym.sh,v 1.14 2021/03/06 09:20:49 jsg Exp $
 #	$NetBSD: genassym.sh,v 1.9 1998/04/25 19:48:27 matthias Exp $
 
 #
@@ -55,24 +55,6 @@ BEGIN {
 	asmprint = "";
 }
 
-function start_define() {
-	if (defining == 0) {
-		defining = 1;
-		printf("void f" FNR "(void);\n");
-		printf("void f" FNR "(void) {\n");
-		if (ccode)
-			call[FNR] = "f" FNR;
-		defining = 1;
-	}
-}
-
-function end_define() {
-	if (defining != 0) {
-		defining = 0;
-		printf("}\n");
-	}
-}
-
 $0 ~ /^[ \t]*#.*/ || $0 ~ /^[ \t]*$/ {
 	# Just ignore comments and empty lines
 	next;
@@ -86,7 +68,10 @@ $0 ~ /^config[ \t]/ {
 }
 
 /^include[ \t]/ {
-	end_define();
+	if (defining != 0) {
+		defining = 0;
+		printf("}\n");
+	}
 	if (includes[$2] == 0) {
 		printf("#%s\n", $0);
 		includes[$2] = 1;
@@ -100,7 +85,6 @@ $0 ~ /^ifndef[ \t]/ ||
 $0 ~ /^else/ ||
 $0 ~ /^elif[ \t]/ ||
 $0 ~ /^endif/ {
-	start_define();
 	printf("#%s\n", $0);
 	next;
 }
@@ -145,7 +129,14 @@ $0 ~ /^endif/ {
 }
 
 /^define[ \t]/ {
-	start_define();
+	if (defining == 0) {
+		defining = 1;
+		printf("void f" FNR "(void);\n");
+		printf("void f" FNR "(void) {\n");
+		if (ccode)
+			call[FNR] = "f" FNR;
+		defining = 1;
+	}
 	value = $0
 	gsub("^define[ \t]+[A-Za-z_][A-Za-z_0-9]*[ \t]+", "", value)
 	if (ccode)
@@ -167,7 +158,10 @@ $0 ~ /^endif/ {
 }
 
 END {
-	end_define();
+	if (defining != 0) {
+		defining = 0;
+		printf("}\n");
+	}
 	if (ccode) {
 		printf("int main(int argc, char **argv) {");
 		for (i in call)

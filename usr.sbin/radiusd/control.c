@@ -1,4 +1,4 @@
-/*	$OpenBSD: control.c,v 1.7 2024/11/21 13:43:10 claudio Exp $ */
+/*	$OpenBSD: control.c,v 1.1 2024/07/09 17:26:14 yasuoka Exp $ */
 
 /*
  * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
@@ -165,15 +165,10 @@ control_accept(int listenfd, short event, void *bula)
 		return;
 	}
 
-	if (imsgbuf_init(&c->iev.ibuf, connfd) == -1) {
-		log_warn("control_accept");
-		close(connfd);
-		free(c);
-		return;
-	}
 	if (idseq == 0)	/* don't use zero.  See radiusd_module_imsg */
 		++idseq;
 	c->id = idseq++;
+	imsg_init(&c->iev.ibuf, connfd);
 	c->iev.handler = control_dispatch_imsg;
 	c->iev.events = EV_READ;
 	event_set(&c->iev.ev, c->iev.ibuf.fd, c->iev.events, c->iev.handler, c);
@@ -227,7 +222,7 @@ control_close(int fd)
 void
 control_connfree(struct ctl_conn *c)
 {
-	imsgbuf_clear(&c->iev.ibuf);
+	msgbuf_clear(&c->iev.ibuf.w);
 	TAILQ_REMOVE(&ctl_conns, c, entry);
 
 	event_del(&c->iev.ev);
@@ -257,13 +252,14 @@ control_dispatch_imsg(int fd, short event, void *bula)
 	}
 
 	if (event & EV_READ) {
-		if (imsgbuf_read(&c->iev.ibuf) != 1) {
+		if (((n = imsg_read(&c->iev.ibuf)) == -1 && errno != EAGAIN) ||
+		    n == 0) {
 			control_close(fd);
 			return;
 		}
 	}
 	if (event & EV_WRITE) {
-		if (imsgbuf_write(&c->iev.ibuf) == -1) {
+		if (msgbuf_write(&c->iev.ibuf.w) <= 0 && errno != EAGAIN) {
 			control_close(fd);
 			return;
 		}

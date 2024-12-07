@@ -1,4 +1,4 @@
-/*	$OpenBSD: yylex.c,v 1.7 2024/11/09 18:03:44 op Exp $	*/
+/*	$OpenBSD: yylex.c,v 1.6 2015/11/19 19:43:40 tedu Exp $	*/
 
 /* yylex - scanner front-end for flex */
 
@@ -40,7 +40,7 @@
 
 /* yylex - scan for a regular expression token */
 
-int     yylex (void)
+int     yylex ()
 {
 	int     toktype;
 	static int beglin = false;

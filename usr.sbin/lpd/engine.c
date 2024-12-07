@@ -1,4 +1,4 @@
-/*	$OpenBSD: engine.c,v 1.4 2024/11/21 13:34:51 claudio Exp $	*/
+/*	$OpenBSD: engine.c,v 1.3 2022/12/28 21:30:17 jmc Exp $	*/
 
 /*
  * Copyright (c) 2017 Eric Faurot <eric@openbsd.org>
@@ -93,7 +93,6 @@ static void
 engine_dispatch_priv(struct imsgproc *proc, struct imsg *imsg, void *arg)
 {
 	struct lp_printer lp;
-	int fd;
 
 	if (imsg == NULL) {
 		log_debug("%s: imsg connection lost", __func__);
@@ -108,10 +107,10 @@ engine_dispatch_priv(struct imsgproc *proc, struct imsg *imsg, void *arg)
 	case IMSG_SOCK_FRONTEND:
 		m_end(proc);
 
-		if ((fd = imsg_get_fd(imsg)) == -1)
+		if (imsg->fd == -1)
 			fatalx("failed to receive frontend socket");
 
-		p_frontend = proc_attach(PROC_FRONTEND, fd);
+		p_frontend = proc_attach(PROC_FRONTEND, imsg->fd);
 		proc_setcallback(p_frontend, engine_dispatch_frontend, NULL);
 		proc_enable(p_frontend);
 		break;
