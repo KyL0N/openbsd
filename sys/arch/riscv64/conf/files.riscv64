@@ -151,6 +151,11 @@ device	stftemp
 attach	stftemp at fdt
 file	arch/riscv64/dev/stftemp.c		stftemp
 
+# StarFive crypto
+device	stfcrypto
+attach	stfcrypto at fdt
+file	arch/riscv64/dev/stfcrypto.c		stfcrypto
+
 # Paravirtual device bus and virtio
 include "dev/pv/files.pv"
 

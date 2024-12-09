@@ -76,6 +76,7 @@ stfpciephy*	at fdt? early 1
 stfpinctrl*	at fdt? early 1
 stfrng*		at fdt?
 stftemp*	at fdt?
+stfcrypto*	at fdt?
 
 virtio*		at fdt?
 virtio*		at pci?
