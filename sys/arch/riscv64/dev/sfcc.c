@@ -58,7 +58,8 @@ sfcc_match(struct device *parent, void *match, void *aux)
 	struct fdt_attach_args *faa = aux;
 
 	return (OF_is_compatible(faa->fa_node, "sifive,fu540-c000-ccache") ||
-	    OF_is_compatible(faa->fa_node, "starfive,jh7100-ccache"));
+	    OF_is_compatible(faa->fa_node, "starfive,jh7100-ccache") ||
+	    OF_is_compatible(faa->fa_node, "starfive,jh7110-ccache"));
 }
 
 void
