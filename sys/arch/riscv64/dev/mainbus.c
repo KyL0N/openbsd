@@ -166,7 +166,8 @@ mainbus_print(void *aux, const char *pnp)
 		    strcmp(buf, "memory") == 0 ||
 		    strcmp(buf, "reserved-memory") == 0 ||
 		    strcmp(buf, "thermal-zones") == 0 ||
-		    strncmp(buf, "__", 2) == 0)
+		    strncmp(buf, "__", 2) == 0 ||
+		    strncmp(buf, "opp-table", 9) == 0)
 			return (QUIET);
 		printf("\"%s\"", buf);
 	} else
